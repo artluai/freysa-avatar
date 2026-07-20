@@ -60,18 +60,46 @@
             </article>
           </div>
           <form id="chat-form" class="chat-form">
-            <label for="chat-input">Message Freysa</label>
-            <div class="input-row">
-              <input
-                id="chat-input"
-                name="message"
-                type="text"
-                maxlength="500"
-                autocomplete="off"
-                placeholder="Ask Freysa something…"
-              />
-              <button id="send-button" class="send-button" type="submit">Send</button>
+            <div id="chat-composer">
+              <label for="chat-input">Message Freysa</label>
+              <div class="input-row">
+                <input
+                  id="chat-input"
+                  name="message"
+                  type="text"
+                  maxlength="500"
+                  autocomplete="off"
+                  placeholder="Ask Freysa something…"
+                />
+                <button id="send-button" class="send-button" type="submit">Send</button>
+              </div>
             </div>
+            <section id="voice-access-gate" class="voice-access-gate" aria-live="polite" hidden>
+              <span class="message-sender">Voice access</span>
+              <p id="voice-access-gate-message"></p>
+              <div class="voice-access-actions">
+                <a
+                  id="voice-access-unlock-link"
+                  class="voice-access-primary"
+                  href="https://x.com/freysa_ai"
+                  target="_blank"
+                  rel="noopener"
+                  hidden
+                >Follow Freysa on X · unlock 5 more</a>
+                <button
+                  id="voice-access-own-key-button"
+                  class="voice-access-primary"
+                  type="button"
+                  hidden
+                >Add my ElevenLabs API key</button>
+                <button
+                  id="voice-access-microsoft-button"
+                  class="voice-access-secondary"
+                  type="button"
+                  hidden
+                >Switch to Microsoft TTS</button>
+              </div>
+            </section>
             <p id="voice-note" class="voice-note"></p>
           </form>
         </div>

@@ -44,8 +44,14 @@ const speechBadge = document.querySelector("#speech-badge");
 const voiceNote = document.querySelector("#voice-note");
 const chatLog = document.querySelector("#chat-log");
 const chatForm = document.querySelector("#chat-form");
+const chatComposer = document.querySelector("#chat-composer");
 const chatInput = document.querySelector("#chat-input");
 const sendButton = document.querySelector("#send-button");
+const voiceAccessGate = document.querySelector("#voice-access-gate");
+const voiceAccessGateMessage = document.querySelector("#voice-access-gate-message");
+const voiceAccessUnlockLink = document.querySelector("#voice-access-unlock-link");
+const voiceAccessOwnKeyButton = document.querySelector("#voice-access-own-key-button");
+const voiceAccessMicrosoftButton = document.querySelector("#voice-access-microsoft-button");
 const performanceLabel = document.querySelector("#performance-label");
 const emotionOptions = document.querySelector("#emotion-options");
 const resetPositionButton = document.querySelector("#reset-position-button");
@@ -141,7 +147,6 @@ let positionDragStart = null;
 let lastPositionFrameAt = 0;
 const voiceSettings = loadVoiceSettings();
 let voiceAccess = null;
-let voiceBonusPromptElement = null;
 let availableElevenLabsVoices = [];
 let turnstileSiteKey = "";
 let turnstileWidgetId = null;
@@ -223,7 +228,7 @@ chatForm.addEventListener("submit", async (event) => {
   try {
     plan = await requestFullFreysaPlan({ message });
     await performPlan(plan, { onSpeechStart: displayResponse });
-    flushVoiceBonusChatPrompt();
+    syncVoiceAccessGate();
   } catch (error) {
     displayResponse();
     console.error(error);
@@ -276,7 +281,9 @@ elevenLabsVoiceOptions.addEventListener("click", handleElevenLabsVoiceChange);
 loadVoicesButton.addEventListener("click", loadElevenLabsVoices);
 previewVoiceButton.addEventListener("click", previewElevenLabsVoice);
 followFreysaButton.addEventListener("click", unlockSponsoredBonus);
-chatLog.addEventListener("click", handleVoiceBonusPromptClick);
+voiceAccessUnlockLink.addEventListener("click", handleVoiceAccessUnlockClick);
+voiceAccessOwnKeyButton.addEventListener("click", () => selectVoiceProvider(VOICE_PROVIDERS.ELEVENLABS_OWN_KEY, { openSettingsPanel: true }));
+voiceAccessMicrosoftButton.addEventListener("click", () => selectVoiceProvider(VOICE_PROVIDERS.AZURE));
 pronunciationRulesButton.addEventListener("click", togglePronunciationRulesDetails);
 pronunciationRulesToggle.addEventListener("change", handlePronunciationRulesChange);
 document.addEventListener("pointerdown", handleDocumentPointerDown);
@@ -552,16 +559,25 @@ function togglePronunciationRulesDetails() {
 function handleVoiceProviderChange(event) {
   const button = event.target.closest("button[data-voice-provider]");
   if (!button) return;
-  voiceSettings.provider = button.dataset.voiceProvider;
+  selectVoiceProvider(button.dataset.voiceProvider);
   voiceProviderMenu.open = false;
+}
+
+function selectVoiceProvider(provider, { openSettingsPanel = false } = {}) {
+  voiceSettings.provider = provider;
   saveVoiceSettings(voiceSettings);
   syncVoiceSettingsUi();
   updateVoiceBadge();
+  syncVoiceAccessGate();
   if (
     voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED
     && elevenLabsConfigured
     && !availableElevenLabsVoices.length
   ) loadElevenLabsVoices();
+  if (openSettingsPanel) {
+    openSettings();
+    window.setTimeout(() => elevenLabsApiKeyInput.focus(), 0);
+  }
 }
 
 function handleOwnApiKeyChange() {
@@ -684,53 +700,35 @@ function updateVoiceAccess(access, { deferChatPrompt = false } = {}) {
     allowanceMessage.textContent = "No login required. Refreshing or switching browsers on this network will not reset the server allowance.";
   }
   syncVoiceSettingsUi();
-  if (!deferChatPrompt) flushVoiceBonusChatPrompt();
+  if (!deferChatPrompt) syncVoiceAccessGate();
 }
 
-function flushVoiceBonusChatPrompt() {
-  const hasPrompt = Boolean(voiceBonusPromptElement?.isConnected);
-  const state = voiceAccessPromptState(voiceAccess, { hasPrompt });
-  if (state === VOICE_ACCESS_PROMPT_STATES.HIDDEN) return;
-  if (!voiceBonusPromptElement?.isConnected) voiceBonusPromptElement = createVoiceBonusPrompt();
+function syncVoiceAccessGate() {
+  const state = voiceAccessPromptState(voiceAccess, {
+    sponsoredSelected: voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED
+  });
+  const hidden = state === VOICE_ACCESS_PROMPT_STATES.HIDDEN;
+  chatComposer.hidden = !hidden;
+  voiceAccessGate.hidden = hidden;
+  voiceAccessUnlockLink.hidden = state !== VOICE_ACCESS_PROMPT_STATES.AVAILABLE;
+  voiceAccessOwnKeyButton.hidden = state !== VOICE_ACCESS_PROMPT_STATES.EXHAUSTED;
+  voiceAccessMicrosoftButton.hidden = state !== VOICE_ACCESS_PROMPT_STATES.EXHAUSTED;
+  voiceAccessMicrosoftButton.disabled = !azureSpeechConfigured;
 
-  const message = voiceBonusPromptElement.querySelector("p");
-  const link = voiceBonusPromptElement.querySelector("a[data-unlock-sponsored-voice]");
   if (state === VOICE_ACCESS_PROMPT_STATES.AVAILABLE) {
-    message.textContent = "You’ve used your 5 sponsored voice responses today. Follow Freysa on X to unlock 5 more.";
-    link.hidden = false;
-  } else {
-    message.textContent = "5 more sponsored voice responses are unlocked for today.";
-    link.hidden = true;
+    voiceAccessGateMessage.textContent = "You’ve used your 5 sponsored voice responses today. Follow Freysa on X to unlock 5 more.";
+  } else if (state === VOICE_ACCESS_PROMPT_STATES.EXHAUSTED) {
+    voiceAccessGateMessage.textContent = Number(voiceAccess?.total) >= 10
+      ? "You’ve used all 10 sponsored voice responses today. Continue with your own ElevenLabs key or switch to Microsoft TTS."
+      : "Sponsored voice access is unavailable on this network. Continue with your own ElevenLabs key or switch to Microsoft TTS.";
   }
-
-  chatLog.scrollTop = chatLog.scrollHeight;
 }
 
-function createVoiceBonusPrompt() {
-  const article = document.createElement("article");
-  article.className = "message message-voice-access";
-  const sender = document.createElement("span");
-  sender.className = "message-sender";
-  sender.textContent = "Voice access";
-  const message = document.createElement("p");
-  const link = document.createElement("a");
-  link.className = "voice-unlock-link";
-  link.href = "https://x.com/freysa_ai";
-  link.target = "_blank";
-  link.rel = "noopener";
-  link.dataset.unlockSponsoredVoice = "";
-  link.textContent = "Follow Freysa on X · unlock 5 more";
-  article.append(sender, message, link);
-  chatLog.append(article);
-  return article;
-}
-
-async function handleVoiceBonusPromptClick(event) {
-  const link = event.target.closest("a[data-unlock-sponsored-voice]");
-  if (!link) return;
-  link.textContent = "Unlocking…";
+async function handleVoiceAccessUnlockClick() {
+  voiceAccessUnlockLink.textContent = "Unlocking…";
   const unlocked = await unlockSponsoredBonus();
-  if (!unlocked) link.textContent = "Follow Freysa on X · unlock 5 more";
+  voiceAccessUnlockLink.textContent = "Follow Freysa on X · unlock 5 more";
+  if (unlocked) chatInput.focus();
 }
 
 async function unlockSponsoredBonus() {
@@ -951,7 +949,7 @@ async function requestElevenLabsSpeech(text, rate) {
   const speech = await response.json().catch(() => ({}));
   if (speech.access) updateVoiceAccess(speech.access, { deferChatPrompt: true });
   if (!response.ok) {
-    if (["DAILY_LIMIT_REACHED", "NETWORK_LIMIT_REACHED"].includes(speech.code)) openSettings();
+    if (["DAILY_LIMIT_REACHED", "NETWORK_LIMIT_REACHED"].includes(speech.code)) syncVoiceAccessGate();
     throw new Error(speech.error || "ElevenLabs speech request failed.");
   }
   return speech;

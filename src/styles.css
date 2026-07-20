@@ -934,33 +934,66 @@ h1 {
   color: #99a69d;
 }
 
-.message-voice-access {
-  width: 100%;
-  max-width: 100%;
-  align-self: stretch;
+.voice-access-gate {
+  padding: 15px 16px;
   background: rgba(112, 251, 157, 0.045);
   border: 1px solid rgba(112, 251, 157, 0.2);
+  border-radius: 10px;
 }
 
-.message-voice-access p {
+.voice-access-gate p {
+  margin: 6px 0 0;
+  color: #d2ddd5;
   font-size: 0.8rem;
   line-height: 1.45;
 }
 
-.voice-unlock-link {
+.voice-access-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.voice-access-primary,
+.voice-access-secondary {
   display: inline-flex;
-  margin-top: 11px;
+  align-items: center;
+  justify-content: center;
   padding: 9px 11px;
-  color: #071008;
-  background: #70fb9d;
   border-radius: 6px;
+  font: inherit;
   font-size: 0.68rem;
   font-weight: 750;
   text-decoration: none;
+  cursor: pointer;
 }
 
-.voice-unlock-link:hover {
+.voice-access-primary {
+  color: #071008;
+  background: #70fb9d;
+  border: 1px solid #70fb9d;
+}
+
+.voice-access-primary:hover {
   background: #9affb8;
+  border-color: #9affb8;
+}
+
+.voice-access-secondary {
+  color: #c8d5cc;
+  background: transparent;
+  border: 1px solid rgba(112, 251, 157, 0.28);
+}
+
+.voice-access-secondary:hover {
+  color: #70fb9d;
+  border-color: rgba(112, 251, 157, 0.52);
+}
+
+.voice-access-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .chat-form {
