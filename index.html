@@ -125,24 +125,22 @@
 
               <div class="pronunciation-settings">
                 <div class="pronunciation-settings-row">
-                  <button
-                    id="pronunciation-rules-button"
-                    class="pronunciation-rules-button"
-                    type="button"
-                    aria-expanded="false"
-                    aria-controls="pronunciation-rules-content"
-                  >
-                    <span>
-                      <strong>Pronunciation rules</strong>
-                      <small>Frey-sah · Acts One–Five</small>
-                    </span>
-                    <span class="select-chevron" aria-hidden="true">⌄</span>
-                  </button>
+                  <strong>Pronunciation rules</strong>
                   <label class="settings-switch" for="pronunciation-rules-toggle">
                     <span class="visually-hidden">Enable pronunciation rules</span>
                     <input id="pronunciation-rules-toggle" type="checkbox" checked />
                   </label>
                 </div>
+                <button
+                  id="pronunciation-rules-button"
+                  class="pronunciation-rules-button"
+                  type="button"
+                  aria-expanded="false"
+                  aria-controls="pronunciation-rules-content"
+                >
+                  <span id="pronunciation-rules-button-label">Show rules</span>
+                  <span class="select-chevron" aria-hidden="true">⌄</span>
+                </button>
                 <div id="pronunciation-rules-content" class="pronunciation-rules-content" hidden>
                   <textarea readonly aria-label="Current pronunciation rules">Freysa → Frey-sah
 Act I → Act One

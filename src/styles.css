@@ -534,35 +534,26 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-}
-
-.pronunciation-rules-button {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 10px 0;
+  padding: 8px 0 2px;
   color: #b8c4bb;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  text-align: left;
-}
-
-.pronunciation-rules-button > span:first-child {
-  display: grid;
-  gap: 3px;
-}
-
-.pronunciation-rules-button strong {
   font-size: 0.69rem;
 }
 
-.pronunciation-rules-button small {
-  color: #68766d;
+.pronunciation-rules-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 0 9px;
+  color: #70fb9d;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
   font-size: 0.61rem;
+  text-align: left;
+}
+
+.pronunciation-rules-button .select-chevron {
+  font-size: 0.7rem;
 }
 
 .pronunciation-rules-button[aria-expanded="true"] .select-chevron {
@@ -1045,10 +1036,16 @@ h1 {
 
   .stage-actions {
     right: 20px;
+    left: 20px;
     bottom: 14px;
-    max-width: calc(100% - 40px);
+    max-width: none;
     flex-wrap: nowrap;
+    justify-content: flex-start;
     gap: 7px;
+  }
+
+  #reset-position-button {
+    margin-left: auto;
   }
 
   .secondary-button {
@@ -1083,8 +1080,9 @@ h1 {
 
   .chat-log {
     gap: 10px;
-    max-height: 42dvh;
+    max-height: none;
     padding: 12px 1px;
+    overflow: visible;
   }
 
   .message {
@@ -1131,8 +1129,8 @@ h1 {
   }
 
   .settings-view {
-    height: 70dvh;
-    min-height: 520px;
+    height: auto;
+    min-height: 0;
   }
 
   .settings-header {
@@ -1141,6 +1139,7 @@ h1 {
 
   .settings-scroll {
     padding: 16px 20px 22px;
+    overflow: visible;
   }
 
   .emotion-options {

@@ -17,6 +17,7 @@ export function loadVoiceSettings(storage = globalThis.localStorage, session = g
     provider: Object.values(VOICE_PROVIDERS).includes(saved.provider) ? saved.provider : null,
     voiceId: typeof saved.voiceId === "string" ? saved.voiceId : "",
     voiceName: typeof saved.voiceName === "string" ? saved.voiceName : "",
+    curatedDefaultVersion: Number.isInteger(saved.curatedDefaultVersion) ? saved.curatedDefaultVersion : 0,
     pronunciationRulesEnabled: saved.pronunciationRulesEnabled !== false,
     ownApiKey: session?.getItem("freysa-elevenlabs-key") || ""
   };
@@ -27,6 +28,7 @@ export function saveVoiceSettings(settings, storage = globalThis.localStorage, s
     provider: settings.provider,
     voiceId: settings.voiceId,
     voiceName: settings.voiceName,
+    curatedDefaultVersion: settings.curatedDefaultVersion || 0,
     pronunciationRulesEnabled: settings.pronunciationRulesEnabled !== false
   }));
   if (settings.ownApiKey) session?.setItem("freysa-elevenlabs-key", settings.ownApiKey);

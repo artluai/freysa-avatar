@@ -64,6 +64,7 @@ const followFreysaButton = document.querySelector("#follow-freysa-button");
 const turnstileWidget = document.querySelector("#turnstile-widget");
 const speakingSpeedSetting = document.querySelector("#speaking-speed-setting");
 const pronunciationRulesButton = document.querySelector("#pronunciation-rules-button");
+const pronunciationRulesButtonLabel = document.querySelector("#pronunciation-rules-button-label");
 const pronunciationRulesContent = document.querySelector("#pronunciation-rules-content");
 const pronunciationRulesToggle = document.querySelector("#pronunciation-rules-toggle");
 
@@ -74,6 +75,7 @@ const MOBILE_VIEW_QUERY = "(max-width: 880px)";
 const MOBILE_AVATAR_PITCH = THREE.MathUtils.degToRad(3.5);
 const MOBILE_AVATAR_SCALE = 1.42;
 const MOBILE_AVATAR_VERTICAL_OFFSET = -0.075;
+const CURATED_DEFAULT_VOICE_VERSION = 1;
 
 const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -531,6 +533,7 @@ function handlePronunciationRulesChange() {
 function togglePronunciationRulesDetails() {
   const expanded = pronunciationRulesButton.getAttribute("aria-expanded") !== "true";
   pronunciationRulesButton.setAttribute("aria-expanded", String(expanded));
+  pronunciationRulesButtonLabel.textContent = expanded ? "Hide rules" : "Show rules";
   pronunciationRulesContent.hidden = !expanded;
 }
 
@@ -712,12 +715,19 @@ function populateElevenLabsVoiceSelect() {
     elevenLabsVoiceOptions.append(option);
   }
 
-  const selected = availableElevenLabsVoices.find((voice) => voice.id === voiceSettings.voiceId)
-    || availableElevenLabsVoices[0];
+  const curatedSarah = availableElevenLabsVoices.find((voice) => voice.curatedKey === "sarah");
+  const migrateToSarah = voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED
+    && voiceSettings.curatedDefaultVersion < CURATED_DEFAULT_VOICE_VERSION;
+  const selected = migrateToSarah
+    ? curatedSarah || availableElevenLabsVoices[0]
+    : availableElevenLabsVoices.find((voice) => voice.id === voiceSettings.voiceId)
+      || curatedSarah
+      || availableElevenLabsVoices[0];
   elevenLabsVoiceMenu.classList.toggle("is-disabled", !selected);
   if (selected) {
     voiceSettings.voiceId = selected.id;
     voiceSettings.voiceName = selected.name;
+    if (migrateToSarah) voiceSettings.curatedDefaultVersion = CURATED_DEFAULT_VOICE_VERSION;
     saveVoiceSettings(voiceSettings);
   }
   for (const button of elevenLabsVoiceOptions.querySelectorAll("button[data-elevenlabs-voice]")) {
