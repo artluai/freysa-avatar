@@ -9,10 +9,33 @@ import {
   limitFacialWeight,
   speechFacialGain
 } from "./visemes.js";
-import { EMOTION_NAMES, getAdjustedEmotionWeight } from "./emotions.js";
+import {
+  EMOTION_NAMES,
+  getAdjustedEmotionWeight,
+  getElevenLabsEmotionGain,
+  getEmotionHeadPose
+} from "./emotions.js";
 import { createPerformancePlan, INTEGRATION_MODES } from "./integration.js";
-import { speechRateFromControl } from "./speech-rate.js";
+import {
+  DEFAULT_SPEECH_RATE_RANGE,
+  ELEVENLABS_SPEECH_RATE_RANGE,
+  speechRateFromControl
+} from "./speech-rate.js";
 import { synthesizeAzureInBrowser } from "./azure-browser-speech.js";
+import { createVisemesFromElevenLabsAlignment } from "./elevenlabs.js";
+import { configureBrowserUtterance } from "./browser-speech.js";
+import {
+  VOICE_ACCESS_PROMPT_STATES,
+  voiceAccessPromptState
+} from "./voice-access-prompt.js";
+import { applyPronunciationRules } from "./pronunciation.js";
+import {
+  VOICE_PROVIDERS,
+  chooseDefaultVoiceProvider,
+  loadVoiceSettings,
+  migrateDefaultVoiceProvider,
+  saveVoiceSettings
+} from "./voice-settings.js";
 import {
   GAZE_CHANNEL_NAMES,
   avatarPositionFromDrag,
@@ -27,16 +50,57 @@ const speechBadge = document.querySelector("#speech-badge");
 const voiceNote = document.querySelector("#voice-note");
 const chatLog = document.querySelector("#chat-log");
 const chatForm = document.querySelector("#chat-form");
+const chatComposer = document.querySelector("#chat-composer");
 const chatInput = document.querySelector("#chat-input");
 const sendButton = document.querySelector("#send-button");
-const performanceMenu = document.querySelector("#performance-menu");
+const voiceAccessGate = document.querySelector("#voice-access-gate");
+const voiceAccessGateMessage = document.querySelector("#voice-access-gate-message");
+const voiceAccessUnlockLink = document.querySelector("#voice-access-unlock-link");
+const voiceAccessOwnKeyButton = document.querySelector("#voice-access-own-key-button");
+const voiceAccessMicrosoftButton = document.querySelector("#voice-access-microsoft-button");
+const voiceAccessKeyEntry = document.querySelector("#voice-access-key-entry");
+const voiceAccessApiKeyInput = document.querySelector("#voice-access-api-key");
+const voiceAccessUseKeyButton = document.querySelector("#voice-access-use-key-button");
+const voiceAccessKeyError = document.querySelector("#voice-access-key-error");
 const performanceLabel = document.querySelector("#performance-label");
 const emotionOptions = document.querySelector("#emotion-options");
 const resetPositionButton = document.querySelector("#reset-position-button");
+const settingsButton = document.querySelector("#settings-button");
+const chatView = document.querySelector("#chat-view");
+const settingsView = document.querySelector("#settings-view");
+const settingsCloseButton = document.querySelector("#settings-close-button");
+const voiceProviderMenu = document.querySelector("#voice-provider-menu");
+const voiceProviderLabel = document.querySelector("#voice-provider-label");
+const voiceProviderOptions = document.querySelector("#voice-provider-options");
+const voiceProviderStatus = document.querySelector("#voice-provider-status");
+const elevenLabsControls = document.querySelector("#elevenlabs-controls");
+const elevenLabsKeyField = document.querySelector("#elevenlabs-key-field");
+const elevenLabsApiKeyInput = document.querySelector("#elevenlabs-api-key");
+const elevenLabsVoiceMenu = document.querySelector("#elevenlabs-voice-menu");
+const elevenLabsVoiceLabel = document.querySelector("#elevenlabs-voice-label");
+const elevenLabsVoiceOptions = document.querySelector("#elevenlabs-voice-options");
+const loadVoicesButton = document.querySelector("#load-voices-button");
+const previewVoiceButton = document.querySelector("#preview-voice-button");
+const sponsoredAllowance = document.querySelector("#sponsored-allowance");
+const allowanceCount = document.querySelector("#allowance-count");
+const allowanceProgress = document.querySelector("#allowance-progress");
+const allowanceMessage = document.querySelector("#allowance-message");
+const followFreysaButton = document.querySelector("#follow-freysa-button");
+const turnstileWidget = document.querySelector("#turnstile-widget");
+const speakingSpeedSetting = document.querySelector("#speaking-speed-setting");
+const pronunciationRulesButton = document.querySelector("#pronunciation-rules-button");
+const pronunciationRulesButtonLabel = document.querySelector("#pronunciation-rules-button-label");
+const pronunciationRulesContent = document.querySelector("#pronunciation-rules-content");
+const pronunciationRulesToggle = document.querySelector("#pronunciation-rules-toggle");
 
 const SPEECH_RELEASE_HOLD_MS = 140;
 const SPEECH_RELEASE_FADE_MS = 760;
 const EMOTION_HOLD_AFTER_SPEECH_MS = 650;
+const MOBILE_VIEW_QUERY = "(max-width: 880px)";
+const MOBILE_AVATAR_PITCH = THREE.MathUtils.degToRad(3.5);
+const MOBILE_AVATAR_SCALE = 1.42;
+const MOBILE_AVATAR_VERTICAL_OFFSET = -0.075;
+const CURATED_DEFAULT_VOICE_VERSION = 2;
 
 const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -68,6 +132,7 @@ let speechStartedAt = 0;
 let isSpeaking = false;
 let azureSpeechConfigured = false;
 let azureSpeechMode = "server";
+let elevenLabsConfigured = false;
 let activeAudio = null;
 let blinkStart = 0;
 let nextBlinkAt = performance.now() + 1800;
@@ -90,6 +155,11 @@ const avatarPositionTarget = { yaw: 0, pitch: 0 };
 let positionPointerId = null;
 let positionDragStart = null;
 let lastPositionFrameAt = 0;
+const voiceSettings = loadVoiceSettings();
+let voiceAccess = null;
+let availableElevenLabsVoices = [];
+let turnstileSiteKey = "";
+let turnstileWidgetId = null;
 
 renderEmotionOptions();
 installRuntimeApi();
@@ -128,19 +198,24 @@ fetch("/api/health")
   .then((response) => response.json())
   .then((health) => {
     azureSpeechConfigured = Boolean(health.azureSpeechConfigured);
+    elevenLabsConfigured = Boolean(health.elevenLabsConfigured);
+    turnstileSiteKey = health.turnstileSiteKey || "";
     azureSpeechMode = health.speechMode || "server";
-    speechBadge.textContent = azureSpeechConfigured
-      ? `Microsoft TTS · ${health.voice}`
-      : "Browser voice fallback";
-    speechBadge.classList.toggle("online", azureSpeechConfigured);
-    voiceNote.textContent = azureSpeechConfigured
-      ? health.facialAnimationMode === "estimated"
-        ? "Microsoft voice and a duration-matched facial animation are active."
-        : ""
-      : "No Azure key yet: browser speech plus a smoothed full-face preview are active now.";
+    let providerChanged = migrateDefaultVoiceProvider(voiceSettings, { azureSpeechConfigured });
+    if (!voiceSettings.provider) {
+      voiceSettings.provider = chooseDefaultVoiceProvider({ elevenLabsConfigured, azureSpeechConfigured });
+      providerChanged = true;
+    }
+    if (providerChanged) saveVoiceSettings(voiceSettings);
+    syncVoiceSettingsUi();
+    updateVoiceBadge(health.voice);
+    return refreshVoiceAccess();
   })
   .catch(() => {
     azureSpeechConfigured = false;
+    elevenLabsConfigured = false;
+    voiceSettings.provider = voiceSettings.provider || VOICE_PROVIDERS.BROWSER;
+    syncVoiceSettingsUi();
     speechBadge.textContent = "Browser voice fallback";
     speechBadge.classList.remove("error", "online");
     voiceNote.textContent = "The hosted test is using your browser voice; avatar motion and all three integration modes remain active.";
@@ -151,6 +226,7 @@ chatForm.addEventListener("submit", async (event) => {
   const message = chatInput.value.trim();
   if (!message || sendButton.disabled) return;
 
+  voiceNote.textContent = "";
   appendMessage("You", message, "user");
   chatInput.value = "";
   setBusy(true);
@@ -165,10 +241,16 @@ chatForm.addEventListener("submit", async (event) => {
   try {
     plan = await requestFullFreysaPlan({ message });
     await performPlan(plan, { onSpeechStart: displayResponse });
+    syncVoiceAccessGate();
   } catch (error) {
     displayResponse();
     console.error(error);
-    voiceNote.textContent = `Voice playback failed: ${error.message}`;
+    if (["DAILY_LIMIT_REACHED", "NETWORK_LIMIT_REACHED"].includes(error.code)) {
+      voiceNote.textContent = "";
+      syncVoiceAccessGate();
+    } else {
+      voiceNote.textContent = `Voice playback failed: ${error.message}`;
+    }
     releaseResponseEmotion();
   } finally {
     setBusy(false);
@@ -177,30 +259,14 @@ chatForm.addEventListener("submit", async (event) => {
 });
 
 emotionOptions.addEventListener("click", (event) => {
-  const adjustButton = event.target.closest("button[data-adjust-emotion]");
-  if (adjustButton) {
-    toggleEmotionAdjustment(adjustButton);
-    return;
-  }
   const button = event.target.closest("button[data-emotion]");
   if (!button) return;
-  runEmotionPreview(button.dataset.emotion);
+  const selection = button.dataset.emotion;
+  showEmotionAdjustment(selection);
+  runEmotionPreview(selection);
 });
 
-document.addEventListener("pointerdown", (event) => {
-  if (performanceMenu.open && !performanceMenu.contains(event.target)) {
-    performanceMenu.open = false;
-  }
-});
-
-document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && performanceMenu.open) {
-    performanceMenu.open = false;
-    performanceMenu.querySelector("summary").focus();
-  }
-});
-
-emotionOptions.addEventListener("input", (event) => {
+function handleSettingsSliderInput(event) {
   const input = event.target.closest("input[data-intensity-target]");
   if (!input) return;
   const value = Number(input.value) / 100;
@@ -215,13 +281,36 @@ emotionOptions.addEventListener("input", (event) => {
   }
   input.parentElement.querySelector("output").textContent = formatSliderOutput(target, value);
   saveEmotionSettings();
-});
+}
+
+emotionOptions.addEventListener("input", handleSettingsSliderInput);
+speakingSpeedSetting.addEventListener("input", handleSettingsSliderInput);
 
 canvas.addEventListener("pointerdown", beginAvatarDrag);
 canvas.addEventListener("pointermove", updateAvatarDrag);
 canvas.addEventListener("pointerup", endAvatarDrag);
 canvas.addEventListener("pointercancel", endAvatarDrag);
 resetPositionButton.addEventListener("click", resetAvatarPosition);
+settingsButton.addEventListener("click", toggleSettings);
+settingsCloseButton.addEventListener("click", () => closeSettings());
+voiceProviderOptions.addEventListener("click", handleVoiceProviderChange);
+elevenLabsApiKeyInput.addEventListener("change", handleOwnApiKeyChange);
+elevenLabsVoiceOptions.addEventListener("click", handleElevenLabsVoiceChange);
+loadVoicesButton.addEventListener("click", loadElevenLabsVoices);
+previewVoiceButton.addEventListener("click", previewElevenLabsVoice);
+followFreysaButton.addEventListener("click", unlockSponsoredBonus);
+voiceAccessUnlockLink.addEventListener("click", handleVoiceAccessUnlockClick);
+voiceAccessOwnKeyButton.addEventListener("click", showVoiceAccessKeyEntry);
+voiceAccessUseKeyButton.addEventListener("click", activateOwnElevenLabsKey);
+voiceAccessApiKeyInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  activateOwnElevenLabsKey();
+});
+voiceAccessMicrosoftButton.addEventListener("click", () => selectVoiceProvider(VOICE_PROVIDERS.AZURE));
+pronunciationRulesButton.addEventListener("click", togglePronunciationRulesDetails);
+pronunciationRulesToggle.addEventListener("change", handlePronunciationRulesChange);
+document.addEventListener("pointerdown", handleDocumentPointerDown);
 
 window.addEventListener("resize", resizeRenderer);
 resizeRenderer();
@@ -241,8 +330,9 @@ function frameModel(model) {
 function render(time) {
   const performanceState = updateFacialPerformance(time);
   updateHeadAndBreathing(time, performanceState.speechEnergy);
-  updateGaze(time, performanceState.hasSpeechFrames);
-  if (!performanceState.hasSpeechFrames) updateProceduralBlink(time);
+  const hasFullFaceSpeechFrames = performanceState.hasSpeechFrames && !isElevenLabsVoiceProvider();
+  updateGaze(time, hasFullFaceSpeechFrames);
+  if (!hasFullFaceSpeechFrames) updateProceduralBlink(time);
   renderer.render(scene, camera);
 }
 
@@ -287,6 +377,7 @@ function updateFacialPerformance(time) {
 
   for (let channel = 0; channel < ARKIT_BLENDSHAPE_NAMES.length; channel += 1) {
     const name = ARKIT_BLENDSHAPE_NAMES[channel];
+    const emotionGain = isElevenLabsVoiceProvider() ? getElevenLabsEmotionGain(name) : 1;
     const target = limitFacialWeight(
       name,
       (targetFrame?.[channel] || 0) * speechFacialGain(name)
@@ -295,7 +386,7 @@ function updateFacialPerformance(time) {
           name,
           masterEmotionIntensity,
           emotionIntensityByName[activeEmotion.name] ?? 1
-        ) * emotionBlend
+        ) * emotionBlend * emotionGain
     );
     smoothMorphWeight(name, target, targetFrame ? facialResponse(name) : 0.2);
   }
@@ -331,11 +422,16 @@ function updateProceduralGaze(time) {
 }
 
 function updateGaze(time, hasSpeechFrames) {
+  const presentationPitch = getAvatarPresentationPitch();
   const shouldTrackCamera = positionPointerId !== null
     || !isAvatarPositionDefault(avatarPosition)
-    || !isAvatarPositionDefault(avatarPositionTarget);
+    || !isAvatarPositionDefault(avatarPositionTarget)
+    || presentationPitch !== 0;
   if (shouldTrackCamera) {
-    applyGazeTargets(cameraFixedGazeForRotation(avatarPosition), 0.48);
+    applyGazeTargets(cameraFixedGazeForRotation({
+      yaw: avatarPosition.yaw,
+      pitch: avatarPosition.pitch + presentationPitch
+    }), 0.48);
   } else if (!hasSpeechFrames) {
     updateProceduralGaze(time);
   }
@@ -373,17 +469,23 @@ function updateHeadAndBreathing(time, speechEnergy) {
   avatarPosition.pitch = THREE.MathUtils.damp(avatarPosition.pitch, avatarPositionTarget.pitch, damping, deltaSeconds);
 
   const speakingAmount = isSpeaking ? 1 : 0;
-  avatarRoot.rotation.y = avatarPosition.yaw
+  const emotionControl = Math.min(1, masterEmotionIntensity * 2)
+    * Math.min(1, (emotionIntensityByName[activeEmotion.name] ?? 0.5) * 2);
+  const actingPose = isElevenLabsVoiceProvider()
+    ? getEmotionHeadPose(activeEmotion, emotionBlend * emotionControl)
+    : { pitch: 0, yaw: 0, roll: 0 };
+  avatarRoot.rotation.y = avatarPosition.yaw + actingPose.yaw
     + Math.sin(time * 0.00029) * 0.018
     + speakingAmount * Math.sin(time * 0.0013 + 0.4) * 0.015;
-  avatarRoot.rotation.x = avatarPosition.pitch
+  avatarRoot.rotation.x = avatarPosition.pitch + getAvatarPresentationPitch() + actingPose.pitch
     + Math.sin(time * 0.00037 + 0.9) * 0.008
     + speakingAmount * Math.sin(time * 0.0032) * (0.006 + speechEnergy * 0.012);
-  avatarRoot.rotation.z = Math.sin(time * 0.00021 + 2.1) * 0.007
+  avatarRoot.rotation.z = actingPose.roll + Math.sin(time * 0.00021 + 2.1) * 0.007
     + speakingAmount * Math.sin(time * 0.00083 + 1.1) * 0.004;
   avatarRoot.position.x = Math.sin(time * 0.00019 + 1.7) * 0.003
     + speakingAmount * Math.sin(time * 0.0011) * 0.002;
-  avatarRoot.position.y = Math.sin(time * 0.00115) * 0.0035;
+  avatarRoot.position.y = (isMobileViewport() ? MOBILE_AVATAR_VERTICAL_OFFSET : 0)
+    + Math.sin(time * 0.00115) * 0.0035;
 
   if (
     resetPositionButton.disabled
@@ -437,6 +539,400 @@ function resetAvatarPosition() {
   emitRuntimeEvent("positionreset", { position: { ...avatarPositionTarget } });
 }
 
+function openSettings() {
+  chatView.hidden = true;
+  settingsView.hidden = false;
+  settingsButton.setAttribute("aria-pressed", "true");
+  syncVoiceSettingsUi();
+  refreshVoiceAccess();
+  if (
+    voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED
+    && elevenLabsConfigured
+    && !availableElevenLabsVoices.length
+  ) loadElevenLabsVoices();
+}
+
+function toggleSettings() {
+  if (settingsView.hidden) openSettings();
+  else closeSettings();
+}
+
+function closeSettings({ focusChat = true } = {}) {
+  settingsView.hidden = true;
+  chatView.hidden = false;
+  settingsButton.setAttribute("aria-pressed", "false");
+  if (focusChat) chatInput.focus();
+}
+
+function handleDocumentPointerDown(event) {
+  for (const menu of [voiceProviderMenu, elevenLabsVoiceMenu]) {
+    if (menu.open && !menu.contains(event.target)) menu.open = false;
+  }
+  if (
+    !settingsView.hidden
+    && !settingsView.contains(event.target)
+    && !settingsButton.contains(event.target)
+  ) closeSettings({ focusChat: false });
+}
+
+function handlePronunciationRulesChange() {
+  voiceSettings.pronunciationRulesEnabled = pronunciationRulesToggle.checked;
+  saveVoiceSettings(voiceSettings);
+}
+
+function togglePronunciationRulesDetails() {
+  const expanded = pronunciationRulesButton.getAttribute("aria-expanded") !== "true";
+  pronunciationRulesButton.setAttribute("aria-expanded", String(expanded));
+  pronunciationRulesButtonLabel.textContent = expanded ? "Hide rules" : "Show rules";
+  pronunciationRulesContent.hidden = !expanded;
+}
+
+function handleVoiceProviderChange(event) {
+  const button = event.target.closest("button[data-voice-provider]");
+  if (!button) return;
+  selectVoiceProvider(button.dataset.voiceProvider);
+  voiceProviderMenu.open = false;
+}
+
+function selectVoiceProvider(provider) {
+  voiceSettings.provider = provider;
+  saveVoiceSettings(voiceSettings);
+  syncVoiceSettingsUi();
+  updateVoiceBadge();
+  syncVoiceAccessGate();
+  if (
+    voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED
+    && elevenLabsConfigured
+    && !availableElevenLabsVoices.length
+  ) loadElevenLabsVoices();
+}
+
+function handleOwnApiKeyChange() {
+  voiceSettings.ownApiKey = elevenLabsApiKeyInput.value.trim();
+  availableElevenLabsVoices = [];
+  saveVoiceSettings(voiceSettings);
+  syncVoiceSettingsUi();
+}
+
+function handleElevenLabsVoiceChange(event) {
+  const button = event.target.closest("button[data-elevenlabs-voice]");
+  if (!button) return;
+  const voice = availableElevenLabsVoices.find((item) => item.id === button.dataset.elevenlabsVoice);
+  voiceSettings.voiceId = voice?.id || "";
+  voiceSettings.voiceName = voice?.name || "";
+  voiceSettings.curatedDefaultVersion = CURATED_DEFAULT_VOICE_VERSION;
+  elevenLabsVoiceMenu.open = false;
+  saveVoiceSettings(voiceSettings);
+  previewVoiceButton.disabled = !voice;
+  syncVoiceSettingsUi();
+  updateVoiceBadge();
+}
+
+function syncVoiceSettingsUi() {
+  voiceProviderLabel.textContent = voiceProviderName(voiceSettings.provider);
+  for (const button of voiceProviderOptions.querySelectorAll("button[data-voice-provider]")) {
+    button.setAttribute("aria-selected", String(button.dataset.voiceProvider === voiceSettings.provider));
+  }
+  elevenLabsApiKeyInput.value = voiceSettings.ownApiKey;
+  pronunciationRulesToggle.checked = voiceSettings.pronunciationRulesEnabled !== false;
+  const isElevenLabs = [
+    VOICE_PROVIDERS.ELEVENLABS_SPONSORED,
+    VOICE_PROVIDERS.ELEVENLABS_OWN_KEY
+  ].includes(voiceSettings.provider);
+  const usesOwnKey = voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_OWN_KEY;
+  elevenLabsControls.hidden = !isElevenLabs;
+  elevenLabsKeyField.hidden = !usesOwnKey;
+  sponsoredAllowance.hidden = voiceSettings.provider !== VOICE_PROVIDERS.ELEVENLABS_SPONSORED;
+  loadVoicesButton.textContent = availableElevenLabsVoices.length ? "Reload voices" : "Load voices";
+  previewVoiceButton.disabled = !voiceSettings.voiceId;
+  elevenLabsVoiceLabel.textContent = voiceSettings.voiceName || "Load voices to choose…";
+
+  if (voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED) {
+    voiceProviderStatus.textContent = elevenLabsConfigured ? "Sponsored" : "Needs API key";
+    voiceProviderStatus.classList.toggle("online", elevenLabsConfigured);
+  } else if (usesOwnKey) {
+    voiceProviderStatus.textContent = voiceSettings.ownApiKey ? "Own key ready" : "Enter key";
+    voiceProviderStatus.classList.toggle("online", Boolean(voiceSettings.ownApiKey));
+  } else if (voiceSettings.provider === VOICE_PROVIDERS.AZURE) {
+    voiceProviderStatus.textContent = azureSpeechConfigured ? "Connected" : "Unavailable";
+    voiceProviderStatus.classList.toggle("online", azureSpeechConfigured);
+  } else {
+    voiceProviderStatus.textContent = "Local fallback";
+    voiceProviderStatus.classList.remove("online");
+  }
+  syncSpeakingSpeedUi();
+}
+
+function speechRateRangeForProvider(provider = voiceSettings.provider) {
+  return [
+    VOICE_PROVIDERS.ELEVENLABS_SPONSORED,
+    VOICE_PROVIDERS.ELEVENLABS_OWN_KEY
+  ].includes(provider)
+    ? ELEVENLABS_SPEECH_RATE_RANGE
+    : DEFAULT_SPEECH_RATE_RANGE;
+}
+
+function isElevenLabsVoiceProvider(provider = voiceSettings.provider) {
+  return [
+    VOICE_PROVIDERS.ELEVENLABS_SPONSORED,
+    VOICE_PROVIDERS.ELEVENLABS_OWN_KEY
+  ].includes(provider);
+}
+
+function syncSpeakingSpeedUi() {
+  const input = speakingSpeedSetting.querySelector('input[data-intensity-target="speech-rate"]');
+  const output = input?.parentElement.querySelector("output");
+  const rangeLabel = speakingSpeedSetting.querySelector(".speech-speed-range");
+  if (!input || !output || !rangeLabel) return;
+  const range = speechRateRangeForProvider();
+  const rate = speechRateFromControl(speechRateControl, range);
+  output.textContent = `${rate.toFixed(2)}×`;
+  input.setAttribute("aria-valuetext", `${rate.toFixed(2)} times normal speed`);
+  rangeLabel.textContent = `${range.minimum.toFixed(2)}×–${range.maximum.toFixed(2)}×`;
+}
+
+function voiceProviderName(provider) {
+  return {
+    [VOICE_PROVIDERS.ELEVENLABS_SPONSORED]: "ElevenLabs · Freysa sponsored",
+    [VOICE_PROVIDERS.ELEVENLABS_OWN_KEY]: "ElevenLabs · Use my own key",
+    [VOICE_PROVIDERS.AZURE]: "Microsoft · Nancy Multilingual",
+    [VOICE_PROVIDERS.BROWSER]: "Browser voice · Fallback"
+  }[provider] || "Browser voice · Fallback";
+}
+
+async function refreshVoiceAccess() {
+  try {
+    const response = await fetch("/api/voice-access", { cache: "no-store" });
+    const access = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(access.error || "Voice allowance could not be loaded.");
+    updateVoiceAccess(access);
+  } catch (error) {
+    allowanceMessage.textContent = error.message;
+    allowanceCount.textContent = "Unavailable";
+  }
+}
+
+function updateVoiceAccess(access, { deferChatPrompt = false } = {}) {
+  voiceAccess = access;
+  elevenLabsConfigured = Boolean(access.sponsoredConfigured);
+  const total = Math.max(1, Number(access.total) || 5);
+  const used = Math.max(0, Number(access.used) || 0);
+  const remaining = Math.max(0, Number(access.remaining) || 0);
+  allowanceCount.textContent = `${remaining} of ${total} left`;
+  allowanceProgress.style.width = `${Math.min(100, used / total * 100)}%`;
+  followFreysaButton.hidden = !access.bonusAvailable;
+
+  if (!access.sponsoredConfigured) {
+    allowanceMessage.textContent = "Add ELEVENLABS_API_KEY to Cloudflare to activate sponsored voices.";
+  } else if (access.bonusAvailable) {
+    allowanceMessage.textContent = "Your first 5 are complete. Visit Freysa on X to unlock 5 more today.";
+  } else if (remaining === 0) {
+    allowanceMessage.textContent = "Today’s 10 sponsored responses are complete. Use your own key or return tomorrow.";
+  } else if (access.bonusUnlocked) {
+    allowanceMessage.textContent = "Your 5 bonus responses are unlocked for today.";
+  } else {
+    allowanceMessage.textContent = "No login required. Refreshing or switching browsers on this network will not reset the server allowance.";
+  }
+  syncVoiceSettingsUi();
+  if (!deferChatPrompt) syncVoiceAccessGate();
+}
+
+function syncVoiceAccessGate() {
+  const state = voiceAccessPromptState(voiceAccess, {
+    sponsoredSelected: voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED
+  });
+  const hidden = state === VOICE_ACCESS_PROMPT_STATES.HIDDEN;
+  chatComposer.hidden = !hidden;
+  voiceAccessGate.hidden = hidden;
+  voiceAccessUnlockLink.hidden = state !== VOICE_ACCESS_PROMPT_STATES.AVAILABLE;
+  voiceAccessOwnKeyButton.hidden = state !== VOICE_ACCESS_PROMPT_STATES.EXHAUSTED;
+  voiceAccessMicrosoftButton.hidden = state !== VOICE_ACCESS_PROMPT_STATES.EXHAUSTED;
+  voiceAccessMicrosoftButton.disabled = !azureSpeechConfigured;
+  if (state !== VOICE_ACCESS_PROMPT_STATES.EXHAUSTED) {
+    voiceAccessKeyEntry.hidden = true;
+    voiceAccessKeyError.textContent = "";
+  }
+
+  if (state === VOICE_ACCESS_PROMPT_STATES.AVAILABLE) {
+    voiceAccessGateMessage.textContent = "You’ve used your 5 sponsored voice responses today. Follow Freysa on X to unlock 5 more.";
+  } else if (state === VOICE_ACCESS_PROMPT_STATES.EXHAUSTED) {
+    voiceAccessGateMessage.textContent = Number(voiceAccess?.total) >= 10
+      ? "You’ve used all 10 sponsored voice responses today. Continue with your own ElevenLabs key or switch to Microsoft TTS."
+      : "Sponsored voice access is unavailable on this network. Continue with your own ElevenLabs key or switch to Microsoft TTS.";
+  }
+}
+
+function showVoiceAccessKeyEntry() {
+  voiceAccessKeyEntry.hidden = false;
+  voiceAccessApiKeyInput.value = voiceSettings.ownApiKey || "";
+  voiceAccessKeyError.textContent = "";
+  voiceAccessApiKeyInput.focus();
+}
+
+async function activateOwnElevenLabsKey() {
+  const apiKey = voiceAccessApiKeyInput.value.trim();
+  if (!apiKey || apiKey.length > 256) {
+    voiceAccessKeyError.textContent = "Enter a valid ElevenLabs API key.";
+    return;
+  }
+
+  voiceAccessUseKeyButton.disabled = true;
+  voiceAccessUseKeyButton.textContent = "Checking…";
+  voiceAccessKeyError.textContent = "";
+  try {
+    const response = await fetch("/api/elevenlabs/voices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiKey })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "ElevenLabs could not verify this API key.");
+    availableElevenLabsVoices = result.voices || [];
+    if (!availableElevenLabsVoices.length) throw new Error("This ElevenLabs account has no available voices.");
+    voiceSettings.ownApiKey = apiKey;
+    voiceSettings.provider = VOICE_PROVIDERS.ELEVENLABS_OWN_KEY;
+    saveVoiceSettings(voiceSettings);
+    populateElevenLabsVoiceSelect();
+    syncVoiceAccessGate();
+    chatInput.focus();
+  } catch (error) {
+    voiceAccessKeyError.textContent = error.message;
+  } finally {
+    voiceAccessUseKeyButton.disabled = false;
+    voiceAccessUseKeyButton.textContent = "Use key";
+  }
+}
+
+async function handleVoiceAccessUnlockClick() {
+  voiceAccessUnlockLink.textContent = "Unlocking…";
+  const unlocked = await unlockSponsoredBonus();
+  voiceAccessUnlockLink.textContent = "Follow Freysa on X · unlock 5 more";
+  if (unlocked) chatInput.focus();
+}
+
+async function unlockSponsoredBonus() {
+  try {
+    const response = await fetch("/api/voice-access/unlock", { method: "POST" });
+    const access = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(access.error || "Bonus unlock failed.");
+    updateVoiceAccess(access);
+    return true;
+  } catch (error) {
+    allowanceMessage.textContent = error.message;
+    return false;
+  }
+}
+
+async function loadElevenLabsVoices() {
+  if (
+    voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_OWN_KEY
+    && !voiceSettings.ownApiKey
+  ) {
+    elevenLabsApiKeyInput.focus();
+    voiceProviderStatus.textContent = "Enter key";
+    return;
+  }
+
+  loadVoicesButton.disabled = true;
+  loadVoicesButton.textContent = "Loading…";
+  try {
+    const ownKey = voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_OWN_KEY;
+    const response = await fetch("/api/elevenlabs/voices", {
+      method: ownKey ? "POST" : "GET",
+      headers: ownKey ? { "Content-Type": "application/json" } : undefined,
+      body: ownKey ? JSON.stringify({ apiKey: voiceSettings.ownApiKey }) : undefined
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "ElevenLabs voices could not be loaded.");
+    availableElevenLabsVoices = result.voices || [];
+    populateElevenLabsVoiceSelect();
+    const isCuratedList = !ownKey;
+    voiceProviderStatus.textContent = isCuratedList
+      ? `${availableElevenLabsVoices.length} of 12 voices`
+      : `${availableElevenLabsVoices.length} voices`;
+    voiceProviderStatus.title = Array.isArray(result.missing) && result.missing.length
+      ? `Unavailable: ${result.missing.join(", ")}`
+      : "";
+    voiceProviderStatus.classList.add("online");
+  } catch (error) {
+    voiceProviderStatus.textContent = "Voice load failed";
+    voiceProviderStatus.classList.remove("online");
+    voiceNote.textContent = error.message;
+  } finally {
+    loadVoicesButton.disabled = false;
+    loadVoicesButton.textContent = availableElevenLabsVoices.length ? "Reload voices" : "Load voices";
+  }
+}
+
+function populateElevenLabsVoiceSelect() {
+  elevenLabsVoiceOptions.replaceChildren();
+  for (const voice of availableElevenLabsVoices) {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.dataset.elevenlabsVoice = voice.id;
+    option.setAttribute("role", "option");
+    const details = [voice.gender, voice.accent].filter(Boolean).join(" · ");
+    option.textContent = details ? `${voice.name} — ${details}` : voice.name;
+    elevenLabsVoiceOptions.append(option);
+  }
+
+  const curatedMatilda = availableElevenLabsVoices.find((voice) => voice.curatedKey === "matilda");
+  const migrateToMatilda = voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED
+    && voiceSettings.curatedDefaultVersion < CURATED_DEFAULT_VOICE_VERSION;
+  const selected = migrateToMatilda
+    ? curatedMatilda || availableElevenLabsVoices[0]
+    : availableElevenLabsVoices.find((voice) => voice.id === voiceSettings.voiceId)
+      || curatedMatilda
+      || availableElevenLabsVoices[0];
+  elevenLabsVoiceMenu.classList.toggle("is-disabled", !selected);
+  if (selected) {
+    voiceSettings.voiceId = selected.id;
+    voiceSettings.voiceName = selected.name;
+    if (migrateToMatilda) voiceSettings.curatedDefaultVersion = CURATED_DEFAULT_VOICE_VERSION;
+    saveVoiceSettings(voiceSettings);
+  }
+  for (const button of elevenLabsVoiceOptions.querySelectorAll("button[data-elevenlabs-voice]")) {
+    button.setAttribute("aria-selected", String(button.dataset.elevenlabsVoice === selected?.id));
+  }
+  previewVoiceButton.disabled = !selected;
+  syncVoiceSettingsUi();
+  updateVoiceBadge();
+}
+
+function previewElevenLabsVoice() {
+  const voice = availableElevenLabsVoices.find((item) => item.id === voiceSettings.voiceId);
+  if (!voice?.previewUrl) {
+    voiceNote.textContent = "This ElevenLabs voice does not include a preview sample.";
+    return;
+  }
+  stopCurrentSpeech();
+  activeAudio = new Audio(voice.previewUrl);
+  activeAudio.play().catch((error) => {
+    voiceNote.textContent = `Voice preview failed: ${error.message}`;
+  });
+}
+
+function updateVoiceBadge(azureVoice = "en-US-NancyMultilingualNeural") {
+  speechBadge.classList.remove("error");
+  if (
+    voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED
+    || voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_OWN_KEY
+  ) {
+    speechBadge.textContent = voiceSettings.voiceName
+      ? `ElevenLabs · ${voiceSettings.voiceName}`
+      : "ElevenLabs · choose a voice in Settings";
+    speechBadge.classList.toggle("online", elevenLabsConfigured || Boolean(voiceSettings.ownApiKey));
+    return;
+  }
+  if (voiceSettings.provider === VOICE_PROVIDERS.AZURE && azureSpeechConfigured) {
+    speechBadge.textContent = `Microsoft TTS · ${azureVoice}`;
+    speechBadge.classList.add("online");
+    return;
+  }
+  speechBadge.textContent = "Browser voice fallback";
+  speechBadge.classList.remove("online");
+}
+
 function setMorphWeight(name, value) {
   for (const mesh of morphMeshes) {
     const index = mesh.morphTargetDictionary[name];
@@ -456,10 +952,35 @@ function smoothMorphWeight(name, target, amount) {
   }
 }
 
-async function speakReply(text, { onSpeechStart } = {}) {
-  const speechRate = speechRateFromControl(speechRateControl);
-  if (azureSpeechConfigured) {
-    const speech = await requestAzureSpeech(text, speechRate);
+async function speakReply(text, {
+  onSpeechStart,
+  pronunciationRules = voiceSettings.pronunciationRulesEnabled
+} = {}) {
+  const speechRate = speechRateFromControl(speechRateControl, speechRateRangeForProvider());
+  const spokenText = applyPronunciationRules(text, { enabled: pronunciationRules !== false });
+  if (
+    voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED
+    || voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_OWN_KEY
+  ) {
+    const speech = await requestElevenLabsSpeech(spokenText, speechRate);
+    const alignment = speech.alignment || {};
+    const facialTimeline = createFacialFramesFromVisemes(
+      createVisemesFromElevenLabsAlignment(alignment),
+      60,
+      {
+        intensity: 0.72,
+        jawIntensity: 1.9,
+        mouthIntensity: 0.85,
+        smoothing: 0.80
+      }
+    );
+    const audioBlob = base64ToBlob(speech.audioBase64, speech.mimeType);
+    await playAudioSpeech(audioBlob, facialTimeline, { onSpeechStart });
+    return;
+  }
+
+  if (voiceSettings.provider === VOICE_PROVIDERS.AZURE && azureSpeechConfigured) {
+    const speech = await requestAzureSpeech(spokenText, speechRate);
     const facialTimeline = speech.blendshapeFrames?.length
       ? {
           frames: speech.blendshapeFrames,
@@ -468,45 +989,146 @@ async function speakReply(text, { onSpeechStart } = {}) {
         }
       : speech.visemes?.length
         ? createFacialFramesFromVisemes(speech.visemes)
-        : createSyntheticFacialFrames(text);
+        : createSyntheticFacialFrames(spokenText);
     const audioBlob = speech.audioBlob || base64ToBlob(speech.audioBase64, speech.mimeType);
-    const audioUrl = URL.createObjectURL(audioBlob);
-    activeAudio = new Audio(audioUrl);
-    await loadAudioMetadata(activeAudio);
-    if (
-      speech.facialAnimationMode !== "azure-facial-expression"
-      && Number.isFinite(activeAudio.duration)
-      && activeAudio.duration > 0
-      && facialTimeline.frames.length > 1
-    ) {
-      facialTimeline.durationMs = activeAudio.duration * 1000;
-      facialTimeline.frameRate = (facialTimeline.frames.length - 1) / activeAudio.duration;
-    }
-    setFacialTimeline(facialTimeline);
-
-    activeAudio.addEventListener("ended", () => {
-      beginSpeechRelease(activeAudio.currentTime * 1000);
-      isSpeaking = false;
-      activeAudio = null;
-      releaseResponseEmotion(EMOTION_HOLD_AFTER_SPEECH_MS);
-      URL.revokeObjectURL(audioUrl);
-      emitRuntimeEvent("speakingend", { plan: activePerformancePlan, reason: "completed" });
-    }, { once: true });
-
-    isSpeaking = true;
-    await activeAudio.play();
-    onSpeechStart?.();
-    emitRuntimeEvent("speakingstart", { plan: activePerformancePlan });
+    await playAudioSpeech(audioBlob, facialTimeline, {
+      onSpeechStart,
+      preserveExactTiming: speech.facialAnimationMode === "azure-facial-expression"
+    });
     return;
   }
 
-  const timeline = createSyntheticFacialFrames(text);
+  const timeline = createSyntheticFacialFrames(spokenText);
   timeline.frameRate *= speechRate;
   timeline.durationMs /= speechRate;
   playFacialTimeline(timeline);
-  speakWithBrowserVoice(text, speechRate);
+  speakWithBrowserVoice(spokenText, speechRate);
   onSpeechStart?.();
   emitRuntimeEvent("speakingstart", { plan: activePerformancePlan });
+}
+
+async function requestElevenLabsSpeech(text, rate) {
+  if (!voiceSettings.voiceId) {
+    openSettings();
+    throw new Error("Choose an ElevenLabs voice in Settings first.");
+  }
+  if (voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_OWN_KEY && !voiceSettings.ownApiKey) {
+    openSettings();
+    throw new Error("Enter your ElevenLabs API key in Settings first.");
+  }
+
+  const sponsored = voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED;
+  const turnstileToken = sponsored ? await getTurnstileToken() : null;
+  const response = await fetch("/api/elevenlabs/speech", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      text,
+      rate,
+      voiceId: voiceSettings.voiceId,
+      apiKey: voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_OWN_KEY
+        ? voiceSettings.ownApiKey
+        : undefined,
+      turnstileToken
+    })
+  });
+  const speech = await response.json().catch(() => ({}));
+  if (speech.access) updateVoiceAccess(speech.access, { deferChatPrompt: true });
+  if (!response.ok) {
+    if (["DAILY_LIMIT_REACHED", "NETWORK_LIMIT_REACHED"].includes(speech.code)) syncVoiceAccessGate();
+    const error = new Error(speech.error || "ElevenLabs speech request failed.");
+    error.code = speech.code;
+    throw error;
+  }
+  return speech;
+}
+
+async function getTurnstileToken() {
+  if (!turnstileSiteKey) return null;
+  await loadTurnstileScript();
+  return new Promise((resolve, reject) => {
+    const options = {
+      sitekey: turnstileSiteKey,
+      execution: "execute",
+      appearance: "interaction-only",
+      callback: (token) => resolve(token),
+      "error-callback": () => reject(new Error("The human check could not be completed.")),
+      "expired-callback": () => reject(new Error("The human check expired. Please try again."))
+    };
+    if (turnstileWidgetId === null) {
+      turnstileWidgetId = window.turnstile.render(turnstileWidget, options);
+    } else {
+      window.turnstile.reset(turnstileWidgetId);
+    }
+    window.turnstile.execute(turnstileWidgetId);
+  });
+}
+
+function loadTurnstileScript() {
+  if (window.turnstile) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector("script[data-freysa-turnstile]");
+    if (existing) {
+      existing.addEventListener("load", resolve, { once: true });
+      existing.addEventListener("error", () => reject(new Error("The human check could not load.")), { once: true });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.defer = true;
+    script.dataset.freysaTurnstile = "true";
+    script.addEventListener("load", resolve, { once: true });
+    script.addEventListener("error", () => reject(new Error("The human check could not load.")), { once: true });
+    document.head.append(script);
+  });
+}
+
+async function playAudioSpeech(audioBlob, facialTimeline, { onSpeechStart, preserveExactTiming = false } = {}) {
+  const audioUrl = URL.createObjectURL(audioBlob);
+  const audio = new Audio(audioUrl);
+  audio._freysaAudioUrl = audioUrl;
+  activeAudio = audio;
+  await loadAudioMetadata(audio);
+  if (
+    !preserveExactTiming
+    && Number.isFinite(audio.duration)
+    && audio.duration > 0
+    && facialTimeline.frames.length > 1
+  ) {
+    facialTimeline.durationMs = audio.duration * 1000;
+    facialTimeline.frameRate = (facialTimeline.frames.length - 1) / audio.duration;
+  }
+  setFacialTimeline(facialTimeline);
+
+  const playbackComplete = new Promise((resolve) => {
+    let resolved = false;
+    audio._freysaResolvePlayback = () => {
+      if (resolved) return;
+      resolved = true;
+      resolve();
+    };
+    audio.addEventListener("ended", () => {
+      beginSpeechRelease(audio.currentTime * 1000);
+      isSpeaking = false;
+      if (activeAudio === audio) activeAudio = null;
+      releaseResponseEmotion(EMOTION_HOLD_AFTER_SPEECH_MS);
+      URL.revokeObjectURL(audioUrl);
+      emitRuntimeEvent("speakingend", { plan: activePerformancePlan, reason: "completed" });
+      audio._freysaResolvePlayback();
+    }, { once: true });
+  });
+
+  isSpeaking = true;
+  try {
+    await audio.play();
+  } catch (error) {
+    audio._freysaResolvePlayback?.();
+    throw error;
+  }
+  onSpeechStart?.();
+  emitRuntimeEvent("speakingstart", { plan: activePerformancePlan });
+  await playbackComplete;
 }
 
 async function requestAzureSpeech(text, rate) {
@@ -547,12 +1169,10 @@ function speakWithBrowserVoice(text, speechRate) {
   if (!("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  const voices = window.speechSynthesis.getVoices();
-  utterance.voice = voices.find((voice) => /microsoft/i.test(voice.name) && /^en/i.test(voice.lang))
-    || voices.find((voice) => /^en/i.test(voice.lang))
-    || null;
-  utterance.rate = speechRate;
-  utterance.pitch = 1.02;
+  configureBrowserUtterance(utterance, {
+    voices: window.speechSynthesis.getVoices(),
+    speechRate
+  });
   utterance.addEventListener("end", () => {
     beginSpeechRelease(facialDurationMs);
     isSpeaking = false;
@@ -579,8 +1199,11 @@ function setFacialTimeline(timeline) {
 function stopCurrentSpeech() {
   const wasSpeaking = isSpeaking;
   if (activeAudio) {
-    activeAudio.pause();
+    const audio = activeAudio;
+    audio.pause();
+    if (audio._freysaAudioUrl) URL.revokeObjectURL(audio._freysaAudioUrl);
     activeAudio = null;
+    audio._freysaResolvePlayback?.();
   }
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   isSpeaking = false;
@@ -642,10 +1265,10 @@ function installRuntimeApi() {
       const mode = options.emotion === undefined
         ? INTEGRATION_MODES.EMOTION_ASSIST
         : INTEGRATION_MODES.DIRECTED;
-      return requestPerformancePlan({ ...options, mode }).then(performPlan);
+      return requestPerformancePlan({ ...options, mode }).then((plan) => performPlan(plan, options));
     },
     chat(options = {}) {
-      return requestFullFreysaPlan(options).then(performPlan);
+      return requestFullFreysaPlan(options).then((plan) => performPlan(plan, options));
     },
     stop() {
       cancelEmotionPreview();
@@ -700,6 +1323,13 @@ function getRuntimeState() {
     speaking: isSpeaking,
     emotion: activeEmotion,
     plan: activePerformancePlan,
+    voice: {
+      provider: voiceSettings.provider,
+      voiceId: voiceSettings.voiceId || null,
+      voiceName: voiceSettings.voiceName || null,
+      pronunciationRulesEnabled: voiceSettings.pronunciationRulesEnabled !== false,
+      sponsoredAccess: voiceAccess
+    },
     position: { ...avatarPositionTarget }
   };
 }
@@ -737,8 +1367,8 @@ function clearSpeechRelease() {
 }
 
 function renderEmotionOptions() {
+  speakingSpeedSetting.append(createSpeakingSpeedControl());
   emotionOptions.append(createMasterIntensityControl());
-  emotionOptions.append(createSpeakingSpeedControl());
 
   const allButton = createEmotionOption("all", "Test all emotions");
   allButton.classList.add("emotion-option-all");
@@ -747,15 +1377,17 @@ function renderEmotionOptions() {
   for (const name of EMOTION_NAMES) {
     const row = document.createElement("div");
     row.className = "emotion-option-row";
-    row.append(createEmotionOption(name, formatEmotionName(name)));
+    const option = createEmotionOption(name, formatEmotionName(name));
+    row.append(option);
     if (name !== "neutral") {
-      const toggle = createAdjustmentToggle(name);
       const panel = document.createElement("div");
       panel.id = `emotion-adjustment-${name}`;
       panel.className = "emotion-adjustment-panel";
       panel.hidden = true;
       panel.append(createIntensitySlider(name, emotionIntensityByName[name] ?? 0.5));
-      row.append(toggle, panel);
+      option.setAttribute("aria-expanded", "false");
+      option.setAttribute("aria-controls", panel.id);
+      row.append(panel);
     } else {
       const neutralNote = document.createElement("span");
       neutralNote.className = "neutral-note";
@@ -779,37 +1411,26 @@ function createMasterIntensityControl() {
 function createSpeakingSpeedControl() {
   const control = document.createElement("div");
   control.className = "emotion-global-control speech-speed-control";
+  const copy = document.createElement("span");
+  copy.className = "speech-speed-copy";
   const label = document.createElement("span");
   label.textContent = "Speaking speed";
-  control.append(label, createIntensitySlider("speech-rate", speechRateControl));
+  const range = document.createElement("small");
+  range.className = "speech-speed-range";
+  const activeRange = speechRateRangeForProvider();
+  range.textContent = `${activeRange.minimum.toFixed(2)}×–${activeRange.maximum.toFixed(2)}×`;
+  copy.append(label, range);
+  control.append(copy, createIntensitySlider("speech-rate", speechRateControl));
   return control;
 }
 
-function createAdjustmentToggle(name) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "emotion-adjust-toggle";
-  button.dataset.adjustEmotion = name;
-  button.setAttribute("aria-expanded", "false");
-  button.setAttribute("aria-controls", `emotion-adjustment-${name}`);
-  button.textContent = "Adjust";
-  return button;
-}
-
-function toggleEmotionAdjustment(button) {
-  const targetId = button.getAttribute("aria-controls");
-  const panel = document.querySelector(`#${targetId}`);
-  const shouldOpen = panel.hidden;
-
-  for (const openPanel of emotionOptions.querySelectorAll(".emotion-adjustment-panel")) {
-    openPanel.hidden = true;
+function showEmotionAdjustment(selection) {
+  for (const panel of emotionOptions.querySelectorAll(".emotion-adjustment-panel")) {
+    panel.hidden = panel.id !== `emotion-adjustment-${selection}`;
   }
-  for (const toggle of emotionOptions.querySelectorAll(".emotion-adjust-toggle")) {
-    toggle.setAttribute("aria-expanded", "false");
+  for (const button of emotionOptions.querySelectorAll("button[data-emotion][aria-controls]")) {
+    button.setAttribute("aria-expanded", String(button.dataset.emotion === selection));
   }
-
-  panel.hidden = !shouldOpen;
-  button.setAttribute("aria-expanded", String(shouldOpen));
 }
 
 function createEmotionOption(value, label) {
@@ -846,7 +1467,7 @@ async function runEmotionPreview(selection) {
   if (selection !== "all") {
     activeEmotion = { name: selection, intensity: selection === "neutral" ? 0 : 1 };
     emotionBlendTarget = selection === "neutral" ? 0 : 1;
-    performanceLabel.textContent = `Test: ${formatEmotionName(selection)}`;
+    performanceLabel.textContent = `Previewing ${formatEmotionName(selection)}.`;
     return;
   }
 
@@ -856,7 +1477,7 @@ async function runEmotionPreview(selection) {
     if (runId !== emotionPreviewRun) return;
     activeEmotion = { name, intensity: name === "neutral" ? 0 : 1 };
     emotionBlendTarget = name === "neutral" ? 0 : 1;
-    performanceLabel.textContent = `Test: ${formatEmotionName(name)}`;
+    performanceLabel.textContent = `Previewing ${formatEmotionName(name)}.`;
     await delay(1650);
   }
 
@@ -864,14 +1485,14 @@ async function runEmotionPreview(selection) {
   releaseResponseEmotion();
   await delay(900);
   if (runId === emotionPreviewRun) {
-    performanceLabel.textContent = "Facial performance";
+    performanceLabel.textContent = "Tune and test Freysa’s expressions.";
     setActiveEmotionOption("neutral");
   }
 }
 
 function cancelEmotionPreview() {
   emotionPreviewRun += 1;
-  performanceLabel.textContent = "Facial performance";
+  performanceLabel.textContent = "Tune and test Freysa’s expressions.";
 }
 
 function formatEmotionName(name) {
@@ -923,7 +1544,9 @@ function clampIntensity(value) {
 }
 
 function formatSliderOutput(name, value) {
-  if (name === "speech-rate") return `${speechRateFromControl(value).toFixed(2)}×`;
+  if (name === "speech-rate") {
+    return `${speechRateFromControl(value, speechRateRangeForProvider()).toFixed(2)}×`;
+  }
   return `${Math.round(value * 100)}%`;
 }
 
@@ -960,6 +1583,15 @@ function resizeRenderer() {
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
+  avatarRoot.scale.setScalar(isMobileViewport() ? MOBILE_AVATAR_SCALE : 1);
+}
+
+function isMobileViewport() {
+  return window.matchMedia(MOBILE_VIEW_QUERY).matches;
+}
+
+function getAvatarPresentationPitch() {
+  return isMobileViewport() ? MOBILE_AVATAR_PITCH : 0;
 }
 
 function delay(milliseconds) {

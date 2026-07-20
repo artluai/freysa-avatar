@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import {
   EMOTION_NAMES,
   getAdjustedEmotionWeight,
+  getElevenLabsEmotionGain,
+  getEmotionHeadPose,
   getEmotionWeight,
   selectResponseEmotion
 } from "./src/emotions.js";
@@ -38,4 +40,19 @@ test("combines master and per-emotion intensity controls", () => {
   assert.equal(calibrated, baseline);
   assert.equal(half, baseline * 0.5);
   assert.equal(getAdjustedEmotionWeight({ name: "warm", intensity: 1 }, "browOuterUpLeft", 0, 1), 0);
+});
+
+test("amplifies ElevenLabs upper-face acting without amplifying the jaw", () => {
+  assert.ok(getElevenLabsEmotionGain("browInnerUp") > 1.5);
+  assert.ok(getElevenLabsEmotionGain("eyeSquintLeft") > 1.5);
+  assert.ok(getElevenLabsEmotionGain("cheekSquintRight") > 1.5);
+  assert.equal(getElevenLabsEmotionGain("jawOpen"), 1);
+});
+
+test("gives non-neutral emotions restrained head poses", () => {
+  assert.deepEqual(getEmotionHeadPose({ name: "neutral", intensity: 0 }), { pitch: 0, yaw: 0, roll: 0 });
+  const doubtful = getEmotionHeadPose({ name: "doubtful", intensity: 1 }, 1);
+  assert.ok(doubtful.yaw > 0);
+  assert.ok(doubtful.roll > 0);
+  assert.ok(Math.abs(doubtful.roll) < 0.03);
 });

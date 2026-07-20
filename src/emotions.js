@@ -81,6 +81,27 @@ export const EMOTION_PRESETS = Object.freeze({
 
 export const EMOTION_NAMES = Object.freeze(Object.keys(EMOTION_PRESETS));
 
+const ELEVENLABS_EMOTION_GAINS = Object.freeze({
+  brow: 1.9,
+  eye: 1.75,
+  cheek: 1.65,
+  nose: 1.35,
+  mouth: 1.08,
+  jaw: 1
+});
+
+const EMOTION_HEAD_POSES = Object.freeze({
+  neutral: Object.freeze({ pitch: 0, yaw: 0, roll: 0 }),
+  warm: Object.freeze({ pitch: -0.006, yaw: 0, roll: -0.006 }),
+  amused: Object.freeze({ pitch: -0.008, yaw: 0.008, roll: -0.014 }),
+  thoughtful: Object.freeze({ pitch: 0.006, yaw: -0.016, roll: 0.010 }),
+  concerned: Object.freeze({ pitch: 0.012, yaw: 0, roll: 0.008 }),
+  surprised: Object.freeze({ pitch: -0.014, yaw: 0, roll: 0 }),
+  doubtful: Object.freeze({ pitch: 0.006, yaw: 0.014, roll: 0.016 }),
+  suspicious: Object.freeze({ pitch: 0.008, yaw: -0.018, roll: -0.012 }),
+  disapproving: Object.freeze({ pitch: 0.014, yaw: 0.010, roll: -0.006 })
+});
+
 export function selectResponseEmotion(message, responseText) {
   const content = `${message} ${responseText}`.toLowerCase();
 
@@ -127,6 +148,21 @@ export function getAdjustedEmotionWeight(
     * controlMultiplier(masterIntensity)
     * controlMultiplier(individualIntensity);
   return getEmotionWeight({ ...emotion, intensity }, channelName);
+}
+
+export function getElevenLabsEmotionGain(channelName) {
+  const prefix = Object.keys(ELEVENLABS_EMOTION_GAINS).find((name) => channelName.startsWith(name));
+  return prefix ? ELEVENLABS_EMOTION_GAINS[prefix] : 1;
+}
+
+export function getEmotionHeadPose(emotion, blend = 1) {
+  const pose = EMOTION_HEAD_POSES[emotion?.name] || EMOTION_HEAD_POSES.neutral;
+  const weight = clamp01(blend) * clamp01(emotion?.intensity);
+  return {
+    pitch: pose.pitch * weight,
+    yaw: pose.yaw * weight,
+    roll: pose.roll * weight
+  };
 }
 
 function clamp01(value) {

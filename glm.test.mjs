@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildFreysaMessages, generateFreysaReply } from "./src/glm.js";
+import {
+  buildFreysaMessages,
+  generateFreysaPerformance,
+  generateFreysaReply,
+  parseFreysaPerformance
+} from "./src/glm.js";
 
 test("GLM prompt grounds Freysa and preserves recent conversation history", () => {
   const messages = buildFreysaMessages("What did I just say?", [
@@ -34,4 +39,43 @@ test("GLM client uses OpenRouter GLM-5.2 with reasoning disabled for low-latency
   assert.equal(requestHeaders["HTTP-Referer"], "https://freysa-avatar-test.pages.dev/");
   assert.equal(requestHeaders["X-OpenRouter-Title"], "Freysa Avatar");
   assert.equal(text, "Hello. What is on your mind?");
+});
+
+test("GLM selects a structured performance emotion with the spoken reply", async () => {
+  let request;
+  const performance = await generateFreysaPerformance({
+    apiKey: "test-key",
+    message: "I am not sure I believe you.",
+    fetchImpl: async (_url, options) => {
+      request = JSON.parse(options.body);
+      return new Response(JSON.stringify({
+        choices: [{ message: { content: JSON.stringify({ text: "Then examine my claim carefully.", emotion: "doubtful" }) } }]
+      }));
+    }
+  });
+  assert.deepEqual(request.response_format, { type: "json_object" });
+  assert.match(request.messages[0].content, /Choose the emotion/i);
+  assert.deepEqual(performance, {
+    text: "Then examine my claim carefully.",
+    emotion: { name: "doubtful", intensity: 0.95 }
+  });
+});
+
+test("recovers speech text when GLM returns the malformed emotion JSON seen in production", () => {
+  const performance = parseFreysaPerformance(
+    '{"text":"Hello. I am here, observing and learning.","emotion":"neutral}',
+    "hello how are you"
+  );
+  assert.deepEqual(performance, {
+    text: "Hello. I am here, observing and learning.",
+    emotion: { name: "warm", intensity: 0.95 }
+  });
+  assert.doesNotMatch(performance.text, /[{}]|"text"|"emotion"/);
+});
+
+test("never treats unrecoverable structured data as spoken text", () => {
+  assert.throws(
+    () => parseFreysaPerformance('{"emotion":"warm"', "hello"),
+    /malformed structured data/i
+  );
 });

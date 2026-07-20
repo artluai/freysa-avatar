@@ -1,6 +1,5 @@
 import { createPerformancePlan, INTEGRATION_MODES } from "../../../src/integration.js";
-import { selectResponseEmotion } from "../../../src/emotions.js";
-import { DEFAULT_GLM_MODEL, generateFreysaReply } from "../../../src/glm.js";
+import { DEFAULT_GLM_MODEL, generateFreysaPerformance } from "../../../src/glm.js";
 
 export async function onRequestPost({ request, env }) {
   try {
@@ -15,7 +14,7 @@ export async function onRequestPost({ request, env }) {
       return json({ error: "OpenRouter GLM-5.2 is not configured.", code: "MODEL_NOT_CONFIGURED" }, 503);
     }
 
-    const text = await generateFreysaReply({
+    const performance = await generateFreysaPerformance({
       apiKey: env.OPENROUTER_API_KEY,
       message: payload.message,
       history: payload.history
@@ -23,8 +22,8 @@ export async function onRequestPost({ request, env }) {
 
     return json({
       ...plan,
-      text,
-      emotion: selectResponseEmotion(payload.message, text),
+      text: performance.text,
+      emotion: performance.emotion,
       model: DEFAULT_GLM_MODEL
     });
   } catch (error) {
