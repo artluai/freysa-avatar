@@ -214,6 +214,7 @@ chatForm.addEventListener("submit", async (event) => {
   const message = chatInput.value.trim();
   if (!message || sendButton.disabled) return;
 
+  voiceNote.textContent = "";
   appendMessage("You", message, "user");
   chatInput.value = "";
   setBusy(true);
@@ -232,7 +233,12 @@ chatForm.addEventListener("submit", async (event) => {
   } catch (error) {
     displayResponse();
     console.error(error);
-    voiceNote.textContent = `Voice playback failed: ${error.message}`;
+    if (["DAILY_LIMIT_REACHED", "NETWORK_LIMIT_REACHED"].includes(error.code)) {
+      voiceNote.textContent = "";
+      syncVoiceAccessGate();
+    } else {
+      voiceNote.textContent = `Voice playback failed: ${error.message}`;
+    }
     releaseResponseEmotion();
   } finally {
     setBusy(false);
@@ -950,7 +956,9 @@ async function requestElevenLabsSpeech(text, rate) {
   if (speech.access) updateVoiceAccess(speech.access, { deferChatPrompt: true });
   if (!response.ok) {
     if (["DAILY_LIMIT_REACHED", "NETWORK_LIMIT_REACHED"].includes(speech.code)) syncVoiceAccessGate();
-    throw new Error(speech.error || "ElevenLabs speech request failed.");
+    const error = new Error(speech.error || "ElevenLabs speech request failed.");
+    error.code = speech.code;
+    throw error;
   }
   return speech;
 }
@@ -1013,19 +1021,34 @@ async function playAudioSpeech(audioBlob, facialTimeline, { onSpeechStart, prese
   }
   setFacialTimeline(facialTimeline);
 
-  audio.addEventListener("ended", () => {
-    beginSpeechRelease(audio.currentTime * 1000);
-    isSpeaking = false;
-    if (activeAudio === audio) activeAudio = null;
-    releaseResponseEmotion(EMOTION_HOLD_AFTER_SPEECH_MS);
-    URL.revokeObjectURL(audioUrl);
-    emitRuntimeEvent("speakingend", { plan: activePerformancePlan, reason: "completed" });
-  }, { once: true });
+  const playbackComplete = new Promise((resolve) => {
+    let resolved = false;
+    audio._freysaResolvePlayback = () => {
+      if (resolved) return;
+      resolved = true;
+      resolve();
+    };
+    audio.addEventListener("ended", () => {
+      beginSpeechRelease(audio.currentTime * 1000);
+      isSpeaking = false;
+      if (activeAudio === audio) activeAudio = null;
+      releaseResponseEmotion(EMOTION_HOLD_AFTER_SPEECH_MS);
+      URL.revokeObjectURL(audioUrl);
+      emitRuntimeEvent("speakingend", { plan: activePerformancePlan, reason: "completed" });
+      audio._freysaResolvePlayback();
+    }, { once: true });
+  });
 
   isSpeaking = true;
-  await audio.play();
+  try {
+    await audio.play();
+  } catch (error) {
+    audio._freysaResolvePlayback?.();
+    throw error;
+  }
   onSpeechStart?.();
   emitRuntimeEvent("speakingstart", { plan: activePerformancePlan });
+  await playbackComplete;
 }
 
 async function requestAzureSpeech(text, rate) {
@@ -1096,9 +1119,11 @@ function setFacialTimeline(timeline) {
 function stopCurrentSpeech() {
   const wasSpeaking = isSpeaking;
   if (activeAudio) {
-    activeAudio.pause();
-    if (activeAudio._freysaAudioUrl) URL.revokeObjectURL(activeAudio._freysaAudioUrl);
+    const audio = activeAudio;
+    audio.pause();
+    if (audio._freysaAudioUrl) URL.revokeObjectURL(audio._freysaAudioUrl);
     activeAudio = null;
+    audio._freysaResolvePlayback?.();
   }
   if ("speechSynthesis" in window) window.speechSynthesis.cancel();
   isSpeaking = false;

@@ -1,6 +1,7 @@
 import { createElevenLabsRequest, ELEVENLABS_MODEL } from "../../../src/elevenlabs.js";
 import {
   enforceOwnKeyRateLimit,
+  getVoiceAccess,
   refundSponsoredCredit,
   reserveSponsoredCredit,
   resolveVoiceVisitor,
@@ -60,7 +61,11 @@ export async function onRequestPost({ request, env }) {
     }, 200, visitor);
   } catch (error) {
     if (sponsoredReserved && visitor) await refundSponsoredCredit(env, visitor).catch(() => {});
-    return json({ error: error.message, code: error.code || "ELEVENLABS_REQUEST_FAILED" }, error.status || 502, visitor);
+    const code = error.code || "ELEVENLABS_REQUEST_FAILED";
+    const access = visitor && ["DAILY_LIMIT_REACHED", "NETWORK_LIMIT_REACHED"].includes(code)
+      ? await getVoiceAccess(env, visitor).catch(() => null)
+      : null;
+    return json({ error: error.message, code, ...(access ? { access } : {}) }, error.status || 502, visitor);
   }
 }
 
