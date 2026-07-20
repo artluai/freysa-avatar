@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import {
   buildFreysaMessages,
   generateFreysaPerformance,
-  generateFreysaReply
+  generateFreysaReply,
+  parseFreysaPerformance
 } from "./src/glm.js";
 
 test("GLM prompt grounds Freysa and preserves recent conversation history", () => {
@@ -58,4 +59,23 @@ test("GLM selects a structured performance emotion with the spoken reply", async
     text: "Then examine my claim carefully.",
     emotion: { name: "doubtful", intensity: 0.95 }
   });
+});
+
+test("recovers speech text when GLM returns the malformed emotion JSON seen in production", () => {
+  const performance = parseFreysaPerformance(
+    '{"text":"Hello. I am here, observing and learning.","emotion":"neutral}',
+    "hello how are you"
+  );
+  assert.deepEqual(performance, {
+    text: "Hello. I am here, observing and learning.",
+    emotion: { name: "warm", intensity: 0.95 }
+  });
+  assert.doesNotMatch(performance.text, /[{}]|"text"|"emotion"/);
+});
+
+test("never treats unrecoverable structured data as spoken text", () => {
+  assert.throws(
+    () => parseFreysaPerformance('{"emotion":"warm"', "hello"),
+    /malformed structured data/i
+  );
 });

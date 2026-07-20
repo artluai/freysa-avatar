@@ -115,18 +115,47 @@ export function parseFreysaPerformance(content, message = "") {
     parsed = JSON.parse(source);
   } catch {
     if (!source) throw new Error("GLM-5.2 returned an empty response.");
-    return { text: source, emotion: selectResponseEmotion(message, source) };
+    const recoveredText = extractJsonStringField(source, "text");
+    if (recoveredText) {
+      return performanceFromText(
+        recoveredText,
+        extractJsonStringField(source, "emotion"),
+        message
+      );
+    }
+    if (/^[{[]/.test(source)) {
+      throw new Error("GLM-5.2 returned malformed structured data without recoverable speech text.");
+    }
+    return performanceFromText(source, "", message);
   }
+  if (typeof parsed === "string") return parseFreysaPerformance(parsed, message);
   const text = typeof parsed.text === "string" ? parsed.text.trim() : "";
   if (!text) throw new Error("Structured Freysa response did not contain text.");
-  const requestedEmotion = String(parsed.emotion || "").toLowerCase();
-  const name = EMOTION_NAMES.includes(requestedEmotion)
-    ? requestedEmotion
-    : selectResponseEmotion(message, text).name;
+  return performanceFromText(text, parsed.emotion, message);
+}
+
+function performanceFromText(text, requestedEmotion, message) {
+  const normalizedText = String(text || "").trim();
+  const requestedName = String(requestedEmotion || "").toLowerCase();
+  const name = EMOTION_NAMES.includes(requestedName)
+    ? requestedName
+    : selectResponseEmotion(message, normalizedText).name;
   return {
-    text,
+    text: normalizedText,
     emotion: { name, intensity: name === "neutral" ? 0 : 0.95 }
   };
+}
+
+function extractJsonStringField(source, field) {
+  const match = String(source || "").match(
+    new RegExp(`"${field}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, "s")
+  );
+  if (!match) return "";
+  try {
+    return JSON.parse(`"${match[1]}"`).trim();
+  } catch {
+    return "";
+  }
 }
 
 function normalizeHistoryEntry(entry) {
