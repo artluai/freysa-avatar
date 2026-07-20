@@ -57,6 +57,15 @@ Use this when the runtime should answer from Freysa's supplied memories and choo
 
 Full Freysa uses OpenRouter's `z-ai/glm-5.2` model when the server has an encrypted `OPENROUTER_API_KEY`. If the model is unavailable, the prototype falls back to its deterministic local memory replies.
 
+Pronunciation rules are applied automatically to spoken audio while leaving displayed text unchanged. The defaults pronounce `Freysa` as “Frey-sah” and Acts I–V as Acts One–Five. A host can opt out for a specific performance:
+
+```js
+await document.querySelector("#freysa").perform({
+  text: "Freysa remembers Act IV.",
+  pronunciationRules: false
+});
+```
+
 ## 3. Available emotions
 
 `neutral`, `warm`, `amused`, `thoughtful`, `concerned`, `surprised`, `doubtful`, `suspicious`, and `disapproving`.

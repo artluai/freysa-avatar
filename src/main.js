@@ -14,6 +14,7 @@ import { createPerformancePlan, INTEGRATION_MODES } from "./integration.js";
 import { speechRateFromControl } from "./speech-rate.js";
 import { synthesizeAzureInBrowser } from "./azure-browser-speech.js";
 import { createVisemesFromElevenLabsAlignment } from "./elevenlabs.js";
+import { applyPronunciationRules } from "./pronunciation.js";
 import {
   VOICE_PROVIDERS,
   chooseDefaultVoiceProvider,
@@ -62,13 +63,15 @@ const allowanceMessage = document.querySelector("#allowance-message");
 const followFreysaButton = document.querySelector("#follow-freysa-button");
 const turnstileWidget = document.querySelector("#turnstile-widget");
 const speakingSpeedSetting = document.querySelector("#speaking-speed-setting");
+const pronunciationRulesToggle = document.querySelector("#pronunciation-rules-toggle");
 
 const SPEECH_RELEASE_HOLD_MS = 140;
 const SPEECH_RELEASE_FADE_MS = 760;
 const EMOTION_HOLD_AFTER_SPEECH_MS = 650;
 const MOBILE_VIEW_QUERY = "(max-width: 880px)";
 const MOBILE_AVATAR_PITCH = THREE.MathUtils.degToRad(3.5);
-const MOBILE_AVATAR_SCALE = 1.12;
+const MOBILE_AVATAR_SCALE = 1.42;
+const MOBILE_AVATAR_VERTICAL_OFFSET = -0.075;
 
 const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -251,14 +254,15 @@ canvas.addEventListener("pointerup", endAvatarDrag);
 canvas.addEventListener("pointercancel", endAvatarDrag);
 resetPositionButton.addEventListener("click", resetAvatarPosition);
 settingsButton.addEventListener("click", toggleSettings);
-settingsCloseButton.addEventListener("click", closeSettings);
+settingsCloseButton.addEventListener("click", () => closeSettings());
 voiceProviderOptions.addEventListener("click", handleVoiceProviderChange);
 elevenLabsApiKeyInput.addEventListener("change", handleOwnApiKeyChange);
 elevenLabsVoiceOptions.addEventListener("click", handleElevenLabsVoiceChange);
 loadVoicesButton.addEventListener("click", loadElevenLabsVoices);
 previewVoiceButton.addEventListener("click", previewElevenLabsVoice);
 followFreysaButton.addEventListener("click", unlockSponsoredBonus);
-document.addEventListener("pointerdown", closeOpenSelectMenus);
+pronunciationRulesToggle.addEventListener("change", handlePronunciationRulesChange);
+document.addEventListener("pointerdown", handleDocumentPointerDown);
 
 window.addEventListener("resize", resizeRenderer);
 resizeRenderer();
@@ -425,7 +429,8 @@ function updateHeadAndBreathing(time, speechEnergy) {
     + speakingAmount * Math.sin(time * 0.00083 + 1.1) * 0.004;
   avatarRoot.position.x = Math.sin(time * 0.00019 + 1.7) * 0.003
     + speakingAmount * Math.sin(time * 0.0011) * 0.002;
-  avatarRoot.position.y = Math.sin(time * 0.00115) * 0.0035;
+  avatarRoot.position.y = (isMobileViewport() ? MOBILE_AVATAR_VERTICAL_OFFSET : 0)
+    + Math.sin(time * 0.00115) * 0.0035;
 
   if (
     resetPositionButton.disabled
@@ -492,17 +497,27 @@ function toggleSettings() {
   else closeSettings();
 }
 
-function closeSettings() {
+function closeSettings({ focusChat = true } = {}) {
   settingsView.hidden = true;
   chatView.hidden = false;
   settingsButton.setAttribute("aria-pressed", "false");
-  chatInput.focus();
+  if (focusChat) chatInput.focus();
 }
 
-function closeOpenSelectMenus(event) {
+function handleDocumentPointerDown(event) {
   for (const menu of [voiceProviderMenu, elevenLabsVoiceMenu]) {
     if (menu.open && !menu.contains(event.target)) menu.open = false;
   }
+  if (
+    !settingsView.hidden
+    && !settingsView.contains(event.target)
+    && !settingsButton.contains(event.target)
+  ) closeSettings({ focusChat: false });
+}
+
+function handlePronunciationRulesChange() {
+  voiceSettings.pronunciationRulesEnabled = pronunciationRulesToggle.checked;
+  saveVoiceSettings(voiceSettings);
 }
 
 function handleVoiceProviderChange(event) {
@@ -546,6 +561,7 @@ function syncVoiceSettingsUi() {
     button.setAttribute("aria-selected", String(button.dataset.voiceProvider === voiceSettings.provider));
   }
   elevenLabsApiKeyInput.value = voiceSettings.ownApiKey;
+  pronunciationRulesToggle.checked = voiceSettings.pronunciationRulesEnabled !== false;
   const isElevenLabs = [
     VOICE_PROVIDERS.ELEVENLABS_SPONSORED,
     VOICE_PROVIDERS.ELEVENLABS_OWN_KEY
@@ -745,13 +761,17 @@ function smoothMorphWeight(name, target, amount) {
   }
 }
 
-async function speakReply(text, { onSpeechStart } = {}) {
+async function speakReply(text, {
+  onSpeechStart,
+  pronunciationRules = voiceSettings.pronunciationRulesEnabled
+} = {}) {
   const speechRate = speechRateFromControl(speechRateControl);
+  const spokenText = applyPronunciationRules(text, { enabled: pronunciationRules !== false });
   if (
     voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED
     || voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_OWN_KEY
   ) {
-    const speech = await requestElevenLabsSpeech(text, speechRate);
+    const speech = await requestElevenLabsSpeech(spokenText, speechRate);
     const alignment = speech.alignment || {};
     const facialTimeline = createFacialFramesFromVisemes(
       createVisemesFromElevenLabsAlignment(alignment)
@@ -762,7 +782,7 @@ async function speakReply(text, { onSpeechStart } = {}) {
   }
 
   if (voiceSettings.provider === VOICE_PROVIDERS.AZURE && azureSpeechConfigured) {
-    const speech = await requestAzureSpeech(text, speechRate);
+    const speech = await requestAzureSpeech(spokenText, speechRate);
     const facialTimeline = speech.blendshapeFrames?.length
       ? {
           frames: speech.blendshapeFrames,
@@ -771,7 +791,7 @@ async function speakReply(text, { onSpeechStart } = {}) {
         }
       : speech.visemes?.length
         ? createFacialFramesFromVisemes(speech.visemes)
-        : createSyntheticFacialFrames(text);
+        : createSyntheticFacialFrames(spokenText);
     const audioBlob = speech.audioBlob || base64ToBlob(speech.audioBase64, speech.mimeType);
     await playAudioSpeech(audioBlob, facialTimeline, {
       onSpeechStart,
@@ -780,11 +800,11 @@ async function speakReply(text, { onSpeechStart } = {}) {
     return;
   }
 
-  const timeline = createSyntheticFacialFrames(text);
+  const timeline = createSyntheticFacialFrames(spokenText);
   timeline.frameRate *= speechRate;
   timeline.durationMs /= speechRate;
   playFacialTimeline(timeline);
-  speakWithBrowserVoice(text, speechRate);
+  speakWithBrowserVoice(spokenText, speechRate);
   onSpeechStart?.();
   emitRuntimeEvent("speakingstart", { plan: activePerformancePlan });
 }
@@ -1030,10 +1050,10 @@ function installRuntimeApi() {
       const mode = options.emotion === undefined
         ? INTEGRATION_MODES.EMOTION_ASSIST
         : INTEGRATION_MODES.DIRECTED;
-      return requestPerformancePlan({ ...options, mode }).then(performPlan);
+      return requestPerformancePlan({ ...options, mode }).then((plan) => performPlan(plan, options));
     },
     chat(options = {}) {
-      return requestFullFreysaPlan(options).then(performPlan);
+      return requestFullFreysaPlan(options).then((plan) => performPlan(plan, options));
     },
     stop() {
       cancelEmotionPreview();
@@ -1092,6 +1112,7 @@ function getRuntimeState() {
       provider: voiceSettings.provider,
       voiceId: voiceSettings.voiceId || null,
       voiceName: voiceSettings.voiceName || null,
+      pronunciationRulesEnabled: voiceSettings.pronunciationRulesEnabled !== false,
       sponsoredAccess: voiceAccess
     },
     position: { ...avatarPositionTarget }

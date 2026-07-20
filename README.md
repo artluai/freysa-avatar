@@ -268,6 +268,8 @@ The `<freysa-avatar>` element supports:
 - `resetPosition()`
 - `getState()`
 
+Spoken performances automatically apply Freysa's default pronunciation rules (`Freysa` → “Frey-sah”; `Act IV` → “Act Four”) without changing the displayed script. Pass `pronunciationRules: false` to `perform()` or `chat()` to opt out for one call, or disable the rule set in Settings.
+
 It emits:
 
 - `ready`

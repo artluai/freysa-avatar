@@ -528,6 +528,69 @@ button {
   border-bottom: 0;
 }
 
+.settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 8px;
+  padding: 10px 0;
+  color: #b8c4bb;
+  cursor: pointer;
+}
+
+.settings-toggle > span {
+  display: grid;
+  gap: 3px;
+}
+
+.settings-toggle strong {
+  font-size: 0.69rem;
+}
+
+.settings-toggle small {
+  color: #68766d;
+  font-size: 0.61rem;
+}
+
+.settings-toggle input {
+  position: relative;
+  width: 32px;
+  height: 18px;
+  flex: none;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.settings-toggle input::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 12px;
+  height: 12px;
+  content: "";
+  background: #87938a;
+  border-radius: 50%;
+  transition: background 140ms ease, transform 140ms ease;
+}
+
+.settings-toggle input:checked {
+  background: rgba(112, 251, 157, 0.24);
+}
+
+.settings-toggle input:checked::after {
+  background: #70fb9d;
+  transform: translateX(14px);
+}
+
+.settings-toggle input:focus-visible {
+  outline: 2px solid rgba(112, 251, 157, 0.58);
+  outline-offset: 3px;
+}
+
 .voice-actions {
   display: flex;
   gap: 9px;

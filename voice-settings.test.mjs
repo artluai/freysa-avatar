@@ -30,10 +30,16 @@ test("stores the provider and voice persistently but keeps the personal key in s
     provider: VOICE_PROVIDERS.ELEVENLABS_OWN_KEY,
     voiceId: "voice-123456",
     voiceName: "Freysa",
+    pronunciationRulesEnabled: false,
     ownApiKey: "secret-key"
   }, local, session);
   const result = loadVoiceSettings(local, session);
   assert.equal(result.voiceId, "voice-123456");
   assert.equal(result.ownApiKey, "secret-key");
+  assert.equal(result.pronunciationRulesEnabled, false);
   assert.equal(local.getItem("freysa-voice-settings").includes("secret-key"), false);
+});
+
+test("enables Freysa pronunciation rules by default", () => {
+  assert.equal(loadVoiceSettings(memoryStorage(), memoryStorage()).pronunciationRulesEnabled, true);
 });
