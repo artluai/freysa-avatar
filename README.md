@@ -12,7 +12,7 @@ Freysa is a browser-based 3D avatar that can receive text, speak it with a human
 - Four facial meshes expose 51 Apple ARKit-compatible expression channels.
 - Microsoft Azure speaks with `en-US-NancyMultilingualNeural` and returns exact 60 FPS facial-animation frames synchronized to the audio.
 - ElevenLabs can be selected from **Settings** for more natural voices. Its character timestamps are converted into the existing ARKit mouth shapes and synchronized to audio playback.
-- The Settings panel puts facial-performance controls first, then voice provider, speaking speed, expandable pronunciation rules, sponsored usage, and a curated 12-voice ElevenLabs shortlist.
+- The Settings panel puts facial-performance controls first, then voice provider and voice selection, speaking speed, expandable pronunciation rules, sponsored usage, and a curated 12-voice ElevenLabs shortlist.
 - Sponsored ElevenLabs usage is limited server-side without login: 5 daily responses, an optional 5-response X-link bonus, then a personal API key or the next daily reset.
 - Cloudflare D1, a signed `HttpOnly` browser cookie, hashed IP buckets, and per-minute limits prevent refreshes and ordinary browser switching from resetting that allowance.
 - OpenRouter-hosted `z-ai/glm-5.2` can write Freysa's response using her Acts I–V history and the current Crown game context.

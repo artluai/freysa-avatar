@@ -121,6 +121,47 @@
                 </details>
               </div>
 
+              <div id="elevenlabs-controls" class="elevenlabs-controls" hidden>
+                <div class="settings-field">
+                  <span>ElevenLabs voice</span>
+                  <details id="elevenlabs-voice-menu" class="settings-select-menu is-disabled">
+                    <summary>
+                      <span id="elevenlabs-voice-label">Load voices to choose…</span>
+                      <span class="select-chevron" aria-hidden="true">⌄</span>
+                    </summary>
+                    <div id="elevenlabs-voice-options" class="settings-select-options" role="listbox" aria-label="ElevenLabs voice"></div>
+                  </details>
+                </div>
+
+                <label id="elevenlabs-key-field" class="settings-field" for="elevenlabs-api-key" hidden>
+                  <span>ElevenLabs API key</span>
+                  <input id="elevenlabs-api-key" type="password" autocomplete="off" placeholder="Paste your key for this browser session" />
+                  <small>The key stays in this browser session and is never saved to the repository.</small>
+                </label>
+
+                <div class="voice-actions">
+                  <button id="load-voices-button" class="settings-action" type="button">Load voices</button>
+                  <button id="preview-voice-button" class="settings-action secondary" type="button" disabled>Preview voice</button>
+                </div>
+
+                <div id="sponsored-allowance" class="allowance-card" hidden>
+                  <div>
+                    <span>Sponsored voice today</span>
+                    <strong id="allowance-count">—</strong>
+                  </div>
+                  <div class="allowance-track" aria-hidden="true"><span id="allowance-progress"></span></div>
+                  <p id="allowance-message">Loading your allowance…</p>
+                  <a
+                    id="follow-freysa-button"
+                    class="settings-action follow-button"
+                    href="https://x.com/freysa_ai"
+                    target="_blank"
+                    rel="noopener"
+                    hidden
+                  >Follow Freysa on X · unlock 5 more</a>
+                </div>
+              </div>
+
               <div id="speaking-speed-setting" class="voice-speed-setting"></div>
 
               <div class="pronunciation-settings">
@@ -149,47 +190,6 @@ Act III → Act Three
 Act IV → Act Four
 Act V → Act Five
 Acts I–V → Acts One through Five</textarea>
-                </div>
-              </div>
-
-              <div id="elevenlabs-controls" class="elevenlabs-controls" hidden>
-                <label id="elevenlabs-key-field" class="settings-field" for="elevenlabs-api-key" hidden>
-                  <span>ElevenLabs API key</span>
-                  <input id="elevenlabs-api-key" type="password" autocomplete="off" placeholder="Paste your key for this browser session" />
-                  <small>The key stays in this browser session and is never saved to the repository.</small>
-                </label>
-
-                <div class="settings-field">
-                  <span>ElevenLabs voice</span>
-                  <details id="elevenlabs-voice-menu" class="settings-select-menu is-disabled">
-                    <summary>
-                      <span id="elevenlabs-voice-label">Load voices to choose…</span>
-                      <span class="select-chevron" aria-hidden="true">⌄</span>
-                    </summary>
-                    <div id="elevenlabs-voice-options" class="settings-select-options" role="listbox" aria-label="ElevenLabs voice"></div>
-                  </details>
-                </div>
-
-                <div class="voice-actions">
-                  <button id="load-voices-button" class="settings-action" type="button">Load voices</button>
-                  <button id="preview-voice-button" class="settings-action secondary" type="button" disabled>Preview voice</button>
-                </div>
-
-                <div id="sponsored-allowance" class="allowance-card" hidden>
-                  <div>
-                    <span>Sponsored voice today</span>
-                    <strong id="allowance-count">—</strong>
-                  </div>
-                  <div class="allowance-track" aria-hidden="true"><span id="allowance-progress"></span></div>
-                  <p id="allowance-message">Loading your allowance…</p>
-                  <a
-                    id="follow-freysa-button"
-                    class="settings-action follow-button"
-                    href="https://x.com/freysa_ai"
-                    target="_blank"
-                    rel="noopener"
-                    hidden
-                  >Follow Freysa on X · unlock 5 more</a>
                 </div>
               </div>
             </section>

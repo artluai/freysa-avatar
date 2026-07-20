@@ -14,6 +14,7 @@ import { createPerformancePlan, INTEGRATION_MODES } from "./integration.js";
 import { speechRateFromControl } from "./speech-rate.js";
 import { synthesizeAzureInBrowser } from "./azure-browser-speech.js";
 import { createVisemesFromElevenLabsAlignment } from "./elevenlabs.js";
+import { configureBrowserUtterance } from "./browser-speech.js";
 import { applyPronunciationRules } from "./pronunciation.js";
 import {
   VOICE_PROVIDERS,
@@ -235,7 +236,7 @@ emotionOptions.addEventListener("click", (event) => {
   runEmotionPreview(button.dataset.emotion);
 });
 
-emotionOptions.addEventListener("input", (event) => {
+function handleSettingsSliderInput(event) {
   const input = event.target.closest("input[data-intensity-target]");
   if (!input) return;
   const value = Number(input.value) / 100;
@@ -250,7 +251,10 @@ emotionOptions.addEventListener("input", (event) => {
   }
   input.parentElement.querySelector("output").textContent = formatSliderOutput(target, value);
   saveEmotionSettings();
-});
+}
+
+emotionOptions.addEventListener("input", handleSettingsSliderInput);
+speakingSpeedSetting.addEventListener("input", handleSettingsSliderInput);
 
 canvas.addEventListener("pointerdown", beginAvatarDrag);
 canvas.addEventListener("pointermove", updateAvatarDrag);
@@ -984,12 +988,10 @@ function speakWithBrowserVoice(text, speechRate) {
   if (!("speechSynthesis" in window)) return;
   window.speechSynthesis.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
-  const voices = window.speechSynthesis.getVoices();
-  utterance.voice = voices.find((voice) => /microsoft/i.test(voice.name) && /^en/i.test(voice.lang))
-    || voices.find((voice) => /^en/i.test(voice.lang))
-    || null;
-  utterance.rate = speechRate;
-  utterance.pitch = 1.02;
+  configureBrowserUtterance(utterance, {
+    voices: window.speechSynthesis.getVoices(),
+    speechRate
+  });
   utterance.addEventListener("end", () => {
     beginSpeechRelease(facialDurationMs);
     isSpeaking = false;
