@@ -733,19 +733,6 @@ button {
   min-width: 0;
 }
 
-.emotion-adjust-toggle {
-  padding: 7px 8px !important;
-  color: #65736a !important;
-  font-size: 0.58rem !important;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.emotion-adjust-toggle:hover,
-.emotion-adjust-toggle[aria-expanded="true"] {
-  color: #70fb9d !important;
-}
-
 .emotion-adjustment-panel {
   grid-column: 1 / -1;
   padding: 0 9px 9px;

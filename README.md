@@ -170,7 +170,7 @@ This hosted URL is for testing. Before launch, the team should deploy the reposi
 
 5. Open <http://127.0.0.1:5187/> in a browser.
 6. Click the **⚙ Settings** button beside **Reset position**.
-7. Under **Facial performance**, preview expressions and adjust their intensity.
+7. Under **Facial performance**, click an expression to preview it and reveal its intensity slider.
 8. Under **Voice**, choose Microsoft, sponsored ElevenLabs, personal ElevenLabs, or browser fallback. Sponsored ElevenLabs loads Freysa's 12 recommended American female voices in preference order.
 
 Without private keys, the site uses its local response rules and the browser's system voice. That is useful for checking the interface, but it does not represent the final Nancy voice or exact Microsoft lip-sync.

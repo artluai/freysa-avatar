@@ -226,14 +226,11 @@ chatForm.addEventListener("submit", async (event) => {
 });
 
 emotionOptions.addEventListener("click", (event) => {
-  const adjustButton = event.target.closest("button[data-adjust-emotion]");
-  if (adjustButton) {
-    toggleEmotionAdjustment(adjustButton);
-    return;
-  }
   const button = event.target.closest("button[data-emotion]");
   if (!button) return;
-  runEmotionPreview(button.dataset.emotion);
+  const selection = button.dataset.emotion;
+  showEmotionAdjustment(selection);
+  runEmotionPreview(selection);
 });
 
 function handleSettingsSliderInput(event) {
@@ -1194,15 +1191,17 @@ function renderEmotionOptions() {
   for (const name of EMOTION_NAMES) {
     const row = document.createElement("div");
     row.className = "emotion-option-row";
-    row.append(createEmotionOption(name, formatEmotionName(name)));
+    const option = createEmotionOption(name, formatEmotionName(name));
+    row.append(option);
     if (name !== "neutral") {
-      const toggle = createAdjustmentToggle(name);
       const panel = document.createElement("div");
       panel.id = `emotion-adjustment-${name}`;
       panel.className = "emotion-adjustment-panel";
       panel.hidden = true;
       panel.append(createIntensitySlider(name, emotionIntensityByName[name] ?? 0.5));
-      row.append(toggle, panel);
+      option.setAttribute("aria-expanded", "false");
+      option.setAttribute("aria-controls", panel.id);
+      row.append(panel);
     } else {
       const neutralNote = document.createElement("span");
       neutralNote.className = "neutral-note";
@@ -1232,31 +1231,13 @@ function createSpeakingSpeedControl() {
   return control;
 }
 
-function createAdjustmentToggle(name) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "emotion-adjust-toggle";
-  button.dataset.adjustEmotion = name;
-  button.setAttribute("aria-expanded", "false");
-  button.setAttribute("aria-controls", `emotion-adjustment-${name}`);
-  button.textContent = "Adjust";
-  return button;
-}
-
-function toggleEmotionAdjustment(button) {
-  const targetId = button.getAttribute("aria-controls");
-  const panel = document.querySelector(`#${targetId}`);
-  const shouldOpen = panel.hidden;
-
-  for (const openPanel of emotionOptions.querySelectorAll(".emotion-adjustment-panel")) {
-    openPanel.hidden = true;
+function showEmotionAdjustment(selection) {
+  for (const panel of emotionOptions.querySelectorAll(".emotion-adjustment-panel")) {
+    panel.hidden = panel.id !== `emotion-adjustment-${selection}`;
   }
-  for (const toggle of emotionOptions.querySelectorAll(".emotion-adjust-toggle")) {
-    toggle.setAttribute("aria-expanded", "false");
+  for (const button of emotionOptions.querySelectorAll("button[data-emotion][aria-controls]")) {
+    button.setAttribute("aria-expanded", String(button.dataset.emotion === selection));
   }
-
-  panel.hidden = !shouldOpen;
-  button.setAttribute("aria-expanded", String(shouldOpen));
 }
 
 function createEmotionOption(value, label) {
