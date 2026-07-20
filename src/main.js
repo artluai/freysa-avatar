@@ -52,6 +52,10 @@ const voiceAccessGateMessage = document.querySelector("#voice-access-gate-messag
 const voiceAccessUnlockLink = document.querySelector("#voice-access-unlock-link");
 const voiceAccessOwnKeyButton = document.querySelector("#voice-access-own-key-button");
 const voiceAccessMicrosoftButton = document.querySelector("#voice-access-microsoft-button");
+const voiceAccessKeyEntry = document.querySelector("#voice-access-key-entry");
+const voiceAccessApiKeyInput = document.querySelector("#voice-access-api-key");
+const voiceAccessUseKeyButton = document.querySelector("#voice-access-use-key-button");
+const voiceAccessKeyError = document.querySelector("#voice-access-key-error");
 const performanceLabel = document.querySelector("#performance-label");
 const emotionOptions = document.querySelector("#emotion-options");
 const resetPositionButton = document.querySelector("#reset-position-button");
@@ -288,7 +292,13 @@ loadVoicesButton.addEventListener("click", loadElevenLabsVoices);
 previewVoiceButton.addEventListener("click", previewElevenLabsVoice);
 followFreysaButton.addEventListener("click", unlockSponsoredBonus);
 voiceAccessUnlockLink.addEventListener("click", handleVoiceAccessUnlockClick);
-voiceAccessOwnKeyButton.addEventListener("click", () => selectVoiceProvider(VOICE_PROVIDERS.ELEVENLABS_OWN_KEY, { openSettingsPanel: true }));
+voiceAccessOwnKeyButton.addEventListener("click", showVoiceAccessKeyEntry);
+voiceAccessUseKeyButton.addEventListener("click", activateOwnElevenLabsKey);
+voiceAccessApiKeyInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  activateOwnElevenLabsKey();
+});
 voiceAccessMicrosoftButton.addEventListener("click", () => selectVoiceProvider(VOICE_PROVIDERS.AZURE));
 pronunciationRulesButton.addEventListener("click", togglePronunciationRulesDetails);
 pronunciationRulesToggle.addEventListener("change", handlePronunciationRulesChange);
@@ -569,7 +579,7 @@ function handleVoiceProviderChange(event) {
   voiceProviderMenu.open = false;
 }
 
-function selectVoiceProvider(provider, { openSettingsPanel = false } = {}) {
+function selectVoiceProvider(provider) {
   voiceSettings.provider = provider;
   saveVoiceSettings(voiceSettings);
   syncVoiceSettingsUi();
@@ -580,10 +590,6 @@ function selectVoiceProvider(provider, { openSettingsPanel = false } = {}) {
     && elevenLabsConfigured
     && !availableElevenLabsVoices.length
   ) loadElevenLabsVoices();
-  if (openSettingsPanel) {
-    openSettings();
-    window.setTimeout(() => elevenLabsApiKeyInput.focus(), 0);
-  }
 }
 
 function handleOwnApiKeyChange() {
@@ -720,6 +726,10 @@ function syncVoiceAccessGate() {
   voiceAccessOwnKeyButton.hidden = state !== VOICE_ACCESS_PROMPT_STATES.EXHAUSTED;
   voiceAccessMicrosoftButton.hidden = state !== VOICE_ACCESS_PROMPT_STATES.EXHAUSTED;
   voiceAccessMicrosoftButton.disabled = !azureSpeechConfigured;
+  if (state !== VOICE_ACCESS_PROMPT_STATES.EXHAUSTED) {
+    voiceAccessKeyEntry.hidden = true;
+    voiceAccessKeyError.textContent = "";
+  }
 
   if (state === VOICE_ACCESS_PROMPT_STATES.AVAILABLE) {
     voiceAccessGateMessage.textContent = "You’ve used your 5 sponsored voice responses today. Follow Freysa on X to unlock 5 more.";
@@ -727,6 +737,47 @@ function syncVoiceAccessGate() {
     voiceAccessGateMessage.textContent = Number(voiceAccess?.total) >= 10
       ? "You’ve used all 10 sponsored voice responses today. Continue with your own ElevenLabs key or switch to Microsoft TTS."
       : "Sponsored voice access is unavailable on this network. Continue with your own ElevenLabs key or switch to Microsoft TTS.";
+  }
+}
+
+function showVoiceAccessKeyEntry() {
+  voiceAccessKeyEntry.hidden = false;
+  voiceAccessApiKeyInput.value = voiceSettings.ownApiKey || "";
+  voiceAccessKeyError.textContent = "";
+  voiceAccessApiKeyInput.focus();
+}
+
+async function activateOwnElevenLabsKey() {
+  const apiKey = voiceAccessApiKeyInput.value.trim();
+  if (!apiKey || apiKey.length > 256) {
+    voiceAccessKeyError.textContent = "Enter a valid ElevenLabs API key.";
+    return;
+  }
+
+  voiceAccessUseKeyButton.disabled = true;
+  voiceAccessUseKeyButton.textContent = "Checking…";
+  voiceAccessKeyError.textContent = "";
+  try {
+    const response = await fetch("/api/elevenlabs/voices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiKey })
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "ElevenLabs could not verify this API key.");
+    availableElevenLabsVoices = result.voices || [];
+    if (!availableElevenLabsVoices.length) throw new Error("This ElevenLabs account has no available voices.");
+    voiceSettings.ownApiKey = apiKey;
+    voiceSettings.provider = VOICE_PROVIDERS.ELEVENLABS_OWN_KEY;
+    saveVoiceSettings(voiceSettings);
+    populateElevenLabsVoiceSelect();
+    syncVoiceAccessGate();
+    chatInput.focus();
+  } catch (error) {
+    voiceAccessKeyError.textContent = error.message;
+  } finally {
+    voiceAccessUseKeyButton.disabled = false;
+    voiceAccessUseKeyButton.textContent = "Use key";
   }
 }
 
@@ -892,7 +943,9 @@ async function speakReply(text, {
     const speech = await requestElevenLabsSpeech(spokenText, speechRate);
     const alignment = speech.alignment || {};
     const facialTimeline = createFacialFramesFromVisemes(
-      createVisemesFromElevenLabsAlignment(alignment)
+      createVisemesFromElevenLabsAlignment(alignment),
+      60,
+      { intensity: 0.68, smoothing: 0.74 }
     );
     const audioBlob = base64ToBlob(speech.audioBase64, speech.mimeType);
     await playAudioSpeech(audioBlob, facialTimeline, { onSpeechStart });

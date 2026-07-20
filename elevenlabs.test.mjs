@@ -34,6 +34,16 @@ test("turns ElevenLabs character timing into a closed viseme timeline", () => {
   ]);
 });
 
+test("coalesces character changes that would make the mouth flutter too quickly", () => {
+  const events = createVisemesFromElevenLabsAlignment({
+    characters: ["f", "r", "e", "y", "s", "a"],
+    character_start_times_seconds: [0, 0.02, 0.04, 0.06, 0.08, 0.10],
+    character_end_times_seconds: [0.02, 0.04, 0.06, 0.08, 0.10, 0.14]
+  });
+  assert.ok(events.length < 8);
+  assert.deepEqual(events.at(-1), { id: 0, offsetMs: 220 });
+});
+
 test("normalizes and prioritizes female ElevenLabs voices", () => {
   const voices = normalizeElevenLabsVoices({ voices: [
     { voice_id: "male-voice", name: "B", labels: { gender: "male" } },

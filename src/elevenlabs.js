@@ -1,6 +1,7 @@
 import { ELEVENLABS_SPEECH_RATE_RANGE, normalizeSpeechRate } from "./speech-rate.js";
 
 export const ELEVENLABS_MODEL = "eleven_multilingual_v2";
+const MIN_VISEME_HOLD_MS = 70;
 
 export function createElevenLabsRequest({ text, rate = 1, modelId = ELEVENLABS_MODEL }) {
   return {
@@ -33,7 +34,7 @@ export function createVisemesFromElevenLabsAlignment(alignment) {
     : [];
   const finalSeconds = Number(ends.at(-1) ?? starts.at(-1) ?? 0);
   events.push({ id: 0, offsetMs: Math.max(0, Math.round(finalSeconds * 1000) + 80) });
-  return dedupeTimedEvents(events);
+  return reduceRapidVisemeEvents(dedupeTimedEvents(events));
 }
 
 export function normalizeElevenLabsVoices(payload) {
@@ -85,4 +86,30 @@ function dedupeTimedEvents(events) {
     }
   }
   return result;
+}
+
+function reduceRapidVisemeEvents(events) {
+  const result = [];
+  for (const event of events) {
+    const previous = result.at(-1);
+    if (!previous) {
+      result.push({ ...event });
+      continue;
+    }
+    if (previous.id === event.id) continue;
+    const delta = event.offsetMs - previous.offsetMs;
+    const preservesBoundary = previous.id === 0 || event.id === 0 || previous.id === 21 || event.id === 21;
+    if (delta < MIN_VISEME_HOLD_MS && !preservesBoundary) {
+      previous.id = representativeViseme(previous.id, event.id);
+      continue;
+    }
+    result.push({ ...event });
+  }
+  return result;
+}
+
+function representativeViseme(current, next) {
+  const vowelVisemes = new Set([2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  if (vowelVisemes.has(current)) return current;
+  return next;
 }

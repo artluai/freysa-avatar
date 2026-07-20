@@ -99,6 +99,19 @@
                   hidden
                 >Switch to Microsoft TTS</button>
               </div>
+              <div id="voice-access-key-entry" class="voice-access-key-entry" hidden>
+                <label for="voice-access-api-key">ElevenLabs API key</label>
+                <div class="voice-access-key-row">
+                  <input
+                    id="voice-access-api-key"
+                    type="password"
+                    autocomplete="off"
+                    placeholder="Paste your ElevenLabs API key"
+                  />
+                  <button id="voice-access-use-key-button" class="voice-access-primary" type="button">Use key</button>
+                </div>
+                <p id="voice-access-key-error" class="voice-access-key-error"></p>
+              </div>
             </section>
             <p id="voice-note" class="voice-note"></p>
           </form>

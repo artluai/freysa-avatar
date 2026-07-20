@@ -996,6 +996,48 @@ h1 {
   opacity: 0.45;
 }
 
+.voice-access-key-entry {
+  margin-top: 13px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(112, 251, 157, 0.14);
+}
+
+.voice-access-key-entry label {
+  margin-bottom: 7px;
+  font-size: 0.67rem;
+}
+
+.voice-access-key-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.voice-access-key-row input {
+  min-width: 0;
+  padding: 10px 11px;
+  color: #eef7f0;
+  background: #111613;
+  border: 1px solid rgba(229, 255, 236, 0.14);
+  border-radius: 6px;
+  outline: none;
+}
+
+.voice-access-key-row input:focus {
+  border-color: rgba(105, 245, 152, 0.62);
+}
+
+.voice-access-key-error {
+  min-height: 0;
+  margin-top: 7px !important;
+  color: #e69b9b !important;
+  font-size: 0.65rem !important;
+}
+
+.voice-access-key-error:empty {
+  display: none;
+}
+
 .chat-form {
   padding-top: 24px;
   border-top: 1px solid rgba(231, 255, 237, 0.09);

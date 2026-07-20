@@ -89,11 +89,15 @@ export function createSyntheticFacialFrames(text, frameRate = 60) {
   return createFacialFramesFromVisemes(createApproximateVisemes(text), frameRate);
 }
 
-export function createFacialFramesFromVisemes(events, frameRate = 60) {
+export function createFacialFramesFromVisemes(events, frameRate = 60, {
+  intensity = 1,
+  smoothing = 0
+} = {}) {
   const safeEvents = events.length ? events : [{ id: 0, offsetMs: 0 }];
   const durationMs = (safeEvents.at(-1)?.offsetMs || 0) + 160;
   const frameCount = Math.ceil(durationMs / 1000 * frameRate) + 1;
   const frames = [];
+  let previousArticulation = Array(AZURE_BLENDSHAPE_NAMES.length).fill(0);
   let eventIndex = 0;
 
   for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
@@ -107,8 +111,18 @@ export function createFacialFramesFromVisemes(events, frameRate = 60) {
     const interval = Math.max(1, next.offsetMs - current.offsetMs);
     const blend = smoothstep(clamp01((elapsedMs - current.offsetMs) / interval));
     const frame = Array(AZURE_BLENDSHAPE_NAMES.length).fill(0);
-    blendViseme(frame, current.id, 1 - blend);
-    blendViseme(frame, next.id, blend);
+    blendViseme(frame, current.id, (1 - blend) * intensity);
+    blendViseme(frame, next.id, blend * intensity);
+
+    if (smoothing > 0) {
+      const response = 1 - clamp01(smoothing);
+      for (let index = 0; index < frame.length; index += 1) {
+        const name = AZURE_BLENDSHAPE_NAMES[index];
+        if (!name.startsWith("mouth") && !name.startsWith("jaw")) continue;
+        frame[index] = previousArticulation[index] + (frame[index] - previousArticulation[index]) * response;
+      }
+      previousArticulation = [...frame];
+    }
 
     const energy = frame[AZURE_BLENDSHAPE_NAMES.indexOf("jawOpen")];
     frame[AZURE_BLENDSHAPE_NAMES.indexOf("browInnerUp")] = 0.012 + energy * 0.035;
