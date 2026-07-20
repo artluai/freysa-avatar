@@ -947,7 +947,7 @@ async function speakReply(text, {
       60,
       {
         intensity: 0.72,
-        jawIntensity: 1.25,
+        jawIntensity: 1.9,
         mouthIntensity: 0.85,
         smoothing: 0.80
       }

@@ -46,7 +46,7 @@ test("supports gentler smoothed articulation for character-timed speech", () => 
   const defaultTimeline = createFacialFramesFromVisemes(events);
   const gentleTimeline = createFacialFramesFromVisemes(events, 60, {
     intensity: 0.72,
-    jawIntensity: 1.25,
+    jawIntensity: 1.9,
     mouthIntensity: 0.85,
     smoothing: 0.80
   });
@@ -69,7 +69,7 @@ test("can open the jaw more while calming ElevenLabs lip shapes", () => {
   const previousTuning = createFacialFramesFromVisemes(events, 60, { intensity: 0.68, smoothing: 0.74 });
   const revisedTuning = createFacialFramesFromVisemes(events, 60, {
     intensity: 0.72,
-    jawIntensity: 1.25,
+    jawIntensity: 1.9,
     mouthIntensity: 0.85,
     smoothing: 0.80
   });
