@@ -66,6 +66,9 @@ const speakingSpeedSetting = document.querySelector("#speaking-speed-setting");
 const SPEECH_RELEASE_HOLD_MS = 140;
 const SPEECH_RELEASE_FADE_MS = 760;
 const EMOTION_HOLD_AFTER_SPEECH_MS = 650;
+const MOBILE_VIEW_QUERY = "(max-width: 880px)";
+const MOBILE_AVATAR_PITCH = THREE.MathUtils.degToRad(3.5);
+const MOBILE_AVATAR_SCALE = 1.12;
 
 const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -247,7 +250,7 @@ canvas.addEventListener("pointermove", updateAvatarDrag);
 canvas.addEventListener("pointerup", endAvatarDrag);
 canvas.addEventListener("pointercancel", endAvatarDrag);
 resetPositionButton.addEventListener("click", resetAvatarPosition);
-settingsButton.addEventListener("click", openSettings);
+settingsButton.addEventListener("click", toggleSettings);
 settingsCloseButton.addEventListener("click", closeSettings);
 voiceProviderOptions.addEventListener("click", handleVoiceProviderChange);
 elevenLabsApiKeyInput.addEventListener("change", handleOwnApiKeyChange);
@@ -365,11 +368,16 @@ function updateProceduralGaze(time) {
 }
 
 function updateGaze(time, hasSpeechFrames) {
+  const presentationPitch = getAvatarPresentationPitch();
   const shouldTrackCamera = positionPointerId !== null
     || !isAvatarPositionDefault(avatarPosition)
-    || !isAvatarPositionDefault(avatarPositionTarget);
+    || !isAvatarPositionDefault(avatarPositionTarget)
+    || presentationPitch !== 0;
   if (shouldTrackCamera) {
-    applyGazeTargets(cameraFixedGazeForRotation(avatarPosition), 0.48);
+    applyGazeTargets(cameraFixedGazeForRotation({
+      yaw: avatarPosition.yaw,
+      pitch: avatarPosition.pitch + presentationPitch
+    }), 0.48);
   } else if (!hasSpeechFrames) {
     updateProceduralGaze(time);
   }
@@ -410,7 +418,7 @@ function updateHeadAndBreathing(time, speechEnergy) {
   avatarRoot.rotation.y = avatarPosition.yaw
     + Math.sin(time * 0.00029) * 0.018
     + speakingAmount * Math.sin(time * 0.0013 + 0.4) * 0.015;
-  avatarRoot.rotation.x = avatarPosition.pitch
+  avatarRoot.rotation.x = avatarPosition.pitch + getAvatarPresentationPitch()
     + Math.sin(time * 0.00037 + 0.9) * 0.008
     + speakingAmount * Math.sin(time * 0.0032) * (0.006 + speechEnergy * 0.012);
   avatarRoot.rotation.z = Math.sin(time * 0.00021 + 2.1) * 0.007
@@ -477,6 +485,11 @@ function openSettings() {
   settingsButton.setAttribute("aria-pressed", "true");
   syncVoiceSettingsUi();
   refreshVoiceAccess();
+}
+
+function toggleSettings() {
+  if (settingsView.hidden) openSettings();
+  else closeSettings();
 }
 
 function closeSettings() {
@@ -1341,6 +1354,15 @@ function resizeRenderer() {
   renderer.setSize(width, height, false);
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
+  avatarRoot.scale.setScalar(isMobileViewport() ? MOBILE_AVATAR_SCALE : 1);
+}
+
+function isMobileViewport() {
+  return window.matchMedia(MOBILE_VIEW_QUERY).matches;
+}
+
+function getAvatarPresentationPitch() {
+  return isMobileViewport() ? MOBILE_AVATAR_PITCH : 0;
 }
 
 function delay(milliseconds) {
