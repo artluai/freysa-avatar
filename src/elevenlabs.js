@@ -1,7 +1,7 @@
 import { ELEVENLABS_SPEECH_RATE_RANGE, normalizeSpeechRate } from "./speech-rate.js";
 
 export const ELEVENLABS_MODEL = "eleven_multilingual_v2";
-const MIN_VISEME_HOLD_MS = 70;
+const MIN_VISEME_HOLD_MS = 90;
 
 export function createElevenLabsRequest({ text, rate = 1, modelId = ELEVENLABS_MODEL }) {
   return {

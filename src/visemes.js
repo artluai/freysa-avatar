@@ -91,6 +91,8 @@ export function createSyntheticFacialFrames(text, frameRate = 60) {
 
 export function createFacialFramesFromVisemes(events, frameRate = 60, {
   intensity = 1,
+  jawIntensity = 1,
+  mouthIntensity = 1,
   smoothing = 0
 } = {}) {
   const safeEvents = events.length ? events : [{ id: 0, offsetMs: 0 }];
@@ -113,6 +115,12 @@ export function createFacialFramesFromVisemes(events, frameRate = 60, {
     const frame = Array(AZURE_BLENDSHAPE_NAMES.length).fill(0);
     blendViseme(frame, current.id, (1 - blend) * intensity);
     blendViseme(frame, next.id, blend * intensity);
+
+    for (let index = 0; index < frame.length; index += 1) {
+      const name = AZURE_BLENDSHAPE_NAMES[index];
+      if (name.startsWith("jaw")) frame[index] *= jawIntensity;
+      else if (name.startsWith("mouth")) frame[index] *= mouthIntensity;
+    }
 
     if (smoothing > 0) {
       const response = 1 - clamp01(smoothing);

@@ -945,7 +945,12 @@ async function speakReply(text, {
     const facialTimeline = createFacialFramesFromVisemes(
       createVisemesFromElevenLabsAlignment(alignment),
       60,
-      { intensity: 0.68, smoothing: 0.74 }
+      {
+        intensity: 0.72,
+        jawIntensity: 1.25,
+        mouthIntensity: 0.85,
+        smoothing: 0.80
+      }
     );
     const audioBlob = base64ToBlob(speech.audioBase64, speech.mimeType);
     await playAudioSpeech(audioBlob, facialTimeline, { onSpeechStart });

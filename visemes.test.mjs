@@ -44,7 +44,12 @@ test("supports gentler smoothed articulation for character-timed speech", () => 
     { id: 0, offsetMs: 220 }
   ];
   const defaultTimeline = createFacialFramesFromVisemes(events);
-  const gentleTimeline = createFacialFramesFromVisemes(events, 60, { intensity: 0.68, smoothing: 0.74 });
+  const gentleTimeline = createFacialFramesFromVisemes(events, 60, {
+    intensity: 0.72,
+    jawIntensity: 1.25,
+    mouthIntensity: 0.85,
+    smoothing: 0.80
+  });
   const jawIndex = AZURE_BLENDSHAPE_NAMES.indexOf("jawOpen");
   const peak = (timeline) => Math.max(...timeline.frames.map((frame) => frame[jawIndex]));
   const motion = (timeline) => timeline.frames.slice(1).reduce(
@@ -53,4 +58,24 @@ test("supports gentler smoothed articulation for character-timed speech", () => 
   );
   assert.ok(peak(gentleTimeline) < peak(defaultTimeline));
   assert.ok(motion(gentleTimeline) < motion(defaultTimeline));
+});
+
+test("can open the jaw more while calming ElevenLabs lip shapes", () => {
+  const events = [
+    { id: 2, offsetMs: 0 },
+    { id: 7, offsetMs: 110 },
+    { id: 0, offsetMs: 260 }
+  ];
+  const previousTuning = createFacialFramesFromVisemes(events, 60, { intensity: 0.68, smoothing: 0.74 });
+  const revisedTuning = createFacialFramesFromVisemes(events, 60, {
+    intensity: 0.72,
+    jawIntensity: 1.25,
+    mouthIntensity: 0.85,
+    smoothing: 0.80
+  });
+  const jawIndex = AZURE_BLENDSHAPE_NAMES.indexOf("jawOpen");
+  const puckerIndex = AZURE_BLENDSHAPE_NAMES.indexOf("mouthPucker");
+  const peak = (timeline, index) => Math.max(...timeline.frames.map((frame) => frame[index]));
+  assert.ok(peak(revisedTuning, jawIndex) > peak(previousTuning, jawIndex));
+  assert.ok(peak(revisedTuning, puckerIndex) < peak(previousTuning, puckerIndex));
 });
