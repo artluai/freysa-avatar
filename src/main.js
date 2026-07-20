@@ -33,6 +33,7 @@ import {
   VOICE_PROVIDERS,
   chooseDefaultVoiceProvider,
   loadVoiceSettings,
+  migrateDefaultVoiceProvider,
   saveVoiceSettings
 } from "./voice-settings.js";
 import {
@@ -200,10 +201,12 @@ fetch("/api/health")
     elevenLabsConfigured = Boolean(health.elevenLabsConfigured);
     turnstileSiteKey = health.turnstileSiteKey || "";
     azureSpeechMode = health.speechMode || "server";
+    let providerChanged = migrateDefaultVoiceProvider(voiceSettings, { azureSpeechConfigured });
     if (!voiceSettings.provider) {
       voiceSettings.provider = chooseDefaultVoiceProvider({ elevenLabsConfigured, azureSpeechConfigured });
-      saveVoiceSettings(voiceSettings);
+      providerChanged = true;
     }
+    if (providerChanged) saveVoiceSettings(voiceSettings);
     syncVoiceSettingsUi();
     updateVoiceBadge(health.voice);
     return refreshVoiceAccess();

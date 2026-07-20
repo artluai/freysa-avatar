@@ -11,6 +11,7 @@ Freysa is a browser-based 3D avatar that can receive text, speak it with a human
 - The approved bald KeenTools Freysa head renders in the browser as a real 3D model.
 - Four facial meshes expose 51 Apple ARKit-compatible expression channels.
 - Microsoft Azure speaks with `en-US-NancyMultilingualNeural` and returns exact 60 FPS facial-animation frames synchronized to the audio.
+- Microsoft Azure with Nancy Multilingual is the default voice for new visitors. A one-time settings migration also moves returning visitors from the former sponsored ElevenLabs default to Microsoft; ElevenLabs remains available in Settings.
 - ElevenLabs can be selected from **Settings** for more natural voices. Its character timestamps are converted into the existing ARKit mouth shapes and synchronized to audio playback.
 - ElevenLabs character timing is coalesced and temporally smoothed before it reaches the avatar so letter-by-letter timing does not create rapid lip movement. Jaw opening is tuned separately from lip shapes, allowing clearer mouth opening without exaggerated lip flutter. Azure's native facial frames remain unchanged.
 - GLM returns an explicit performance emotion with each generated reply. Because ElevenLabs does not supply full-face animation, its speech receives an additional acting layer with stronger eye, brow, and cheek movement, live blinking and gaze, and a restrained emotion-specific head pose. Microsoft keeps its native full-face performance unchanged.
