@@ -29,6 +29,10 @@ html::-webkit-scrollbar-thumb {
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   min-width: 320px;
   min-height: 100vh;
@@ -220,48 +224,36 @@ button {
   border-color: rgba(143, 255, 177, 0.24);
 }
 
-.performance-menu {
-  position: relative;
-}
-
-.performance-menu summary {
-  cursor: pointer;
-  list-style: none;
-  user-select: none;
-}
-
-.performance-menu summary::-webkit-details-marker {
-  display: none;
-}
-
-.performance-menu[open] summary {
+.settings-button {
+  display: inline-grid;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  padding: 0;
   color: #70fb9d;
-  border-color: rgba(112, 251, 157, 0.55);
+  background: transparent;
+  border: 0;
+  border-radius: 50%;
+  opacity: 0.82;
+  transition: color 140ms ease, opacity 140ms ease, transform 140ms ease;
 }
 
-.menu-chevron {
-  color: #70fb9d;
-  transition: transform 150ms ease;
+.settings-button:hover,
+.settings-button[aria-pressed="true"] {
+  color: #a6ffbf;
+  opacity: 1;
+  transform: rotate(18deg);
 }
 
-.performance-menu[open] .menu-chevron {
-  transform: rotate(180deg);
+.settings-gear {
+  font-size: 1.35rem;
+  line-height: 1;
 }
 
 .emotion-options {
-  position: absolute;
-  right: 0;
-  bottom: calc(100% + 9px);
   display: grid;
-  width: 285px;
-  max-height: 60vh;
-  padding: 7px;
-  overflow-y: auto;
-  background: rgba(9, 13, 11, 0.98);
-  border: 1px solid rgba(143, 255, 177, 0.24);
-  border-radius: 9px;
-  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(16px);
+  width: 100%;
+  padding: 2px 0 0;
 }
 
 .emotion-options button {
@@ -295,7 +287,7 @@ button {
 
 .emotion-global-control {
   display: grid;
-  grid-template-columns: 94px 1fr;
+  grid-template-columns: 120px 1fr;
   gap: 9px;
   align-items: center;
   padding: 8px 9px;
@@ -316,6 +308,316 @@ button {
   grid-template-columns: 1fr auto;
   gap: 6px;
   align-items: center;
+}
+
+.settings-view {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  height: 100%;
+  min-height: 0;
+}
+
+.settings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 34px 30px 22px;
+  border-bottom: 1px solid rgba(231, 255, 237, 0.09);
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.75rem;
+  font-weight: 400;
+}
+
+.settings-close-button {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  color: #9eaaa1;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 7px;
+  font-size: 1.45rem;
+  line-height: 1;
+}
+
+.settings-close-button:hover {
+  color: #eef7f0;
+  border-color: rgba(112, 251, 157, 0.42);
+}
+
+.settings-scroll {
+  min-height: 0;
+  padding: 22px 30px 30px;
+  overflow-y: auto;
+}
+
+.settings-section + .settings-section {
+  margin-top: 26px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(231, 255, 237, 0.09);
+}
+
+.settings-section-heading {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.settings-section-heading h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.settings-section-heading p {
+  margin: 5px 0 0;
+  color: #78857c;
+  font-size: 0.71rem;
+  line-height: 1.45;
+}
+
+.settings-status {
+  flex: none;
+  padding: 5px 8px;
+  color: #819087;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 999px;
+  font-size: 0.59rem;
+}
+
+.settings-status.online {
+  color: #70fb9d;
+  background: rgba(112, 251, 157, 0.08);
+}
+
+.settings-field {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+  color: #b8c4bb;
+  font-size: 0.69rem;
+  font-weight: 600;
+}
+
+.settings-field input {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  color: #e7f0e9;
+  background: #111613;
+  border: 1px solid rgba(143, 255, 177, 0.18);
+  border-radius: 7px;
+  outline: none;
+}
+
+.settings-field input:focus {
+  border-color: rgba(112, 251, 157, 0.62);
+  box-shadow: 0 0 0 3px rgba(112, 251, 157, 0.08);
+}
+
+.settings-field small {
+  color: #66736a;
+  font-size: 0.61rem;
+  font-weight: 400;
+  line-height: 1.45;
+}
+
+.elevenlabs-controls {
+  margin-top: 4px;
+}
+
+.settings-select-menu {
+  position: relative;
+  width: 100%;
+}
+
+.settings-select-menu summary {
+  display: flex;
+  min-height: 42px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 12px;
+  color: #e7f0e9;
+  background: #111613;
+  border: 1px solid rgba(143, 255, 177, 0.18);
+  border-radius: 7px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+
+.settings-select-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.settings-select-menu[open] summary {
+  border-color: rgba(112, 251, 157, 0.62);
+  box-shadow: 0 0 0 3px rgba(112, 251, 157, 0.08);
+}
+
+.settings-select-menu.is-disabled summary {
+  cursor: default;
+  opacity: 0.48;
+  pointer-events: none;
+}
+
+.select-chevron {
+  color: #70fb9d;
+  font-size: 0.9rem;
+  transition: transform 140ms ease;
+}
+
+.settings-select-menu[open] .select-chevron {
+  transform: rotate(180deg);
+}
+
+.settings-select-options {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 6px);
+  left: 0;
+  display: grid;
+  width: 100%;
+  max-height: 240px;
+  padding: 5px;
+  overflow-y: auto;
+  background: #0b0f0d;
+  border: 1px solid rgba(143, 255, 177, 0.22);
+  border-radius: 8px;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.55);
+}
+
+.settings-select-options button {
+  width: 100%;
+  padding: 10px 11px;
+  color: #aebbb2;
+  background: transparent;
+  border: 0;
+  border-radius: 5px;
+  font-size: 0.7rem;
+  line-height: 1.35;
+  text-align: left;
+}
+
+.settings-select-options button:hover,
+.settings-select-options button[aria-selected="true"] {
+  color: #70fb9d;
+  background: rgba(112, 251, 157, 0.08);
+}
+
+.voice-speed-setting {
+  margin-top: 13px;
+}
+
+.voice-speed-setting .emotion-global-control {
+  grid-template-columns: 120px 1fr;
+  padding: 8px 0;
+}
+
+.voice-speed-setting .speech-speed-control {
+  margin: 0;
+  padding-bottom: 8px;
+  border-bottom: 0;
+}
+
+.voice-actions {
+  display: flex;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.settings-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  padding: 9px 13px;
+  color: #071008;
+  background: #70fb9d;
+  border: 1px solid #70fb9d;
+  border-radius: 7px;
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.settings-action.secondary {
+  color: #b8c4bb;
+  background: transparent;
+  border-color: rgba(143, 255, 177, 0.2);
+}
+
+.settings-action:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.allowance-card {
+  margin-top: 16px;
+  padding: 14px;
+  background: rgba(112, 251, 157, 0.045);
+  border: 1px solid rgba(112, 251, 157, 0.14);
+  border-radius: 9px;
+}
+
+.allowance-card > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: #9ba89f;
+  font-size: 0.65rem;
+}
+
+.allowance-card strong {
+  color: #eef7f0;
+  font-size: 0.7rem;
+}
+
+.allowance-track {
+  height: 3px;
+  margin-top: 10px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+
+.allowance-track span {
+  display: block;
+  width: 0;
+  height: 100%;
+  background: #70fb9d;
+  transition: width 220ms ease;
+}
+
+.allowance-card p {
+  margin: 10px 0 0;
+  color: #738078;
+  font-size: 0.64rem;
+  line-height: 1.45;
+}
+
+.follow-button {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.turnstile-widget {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 20;
+}
+
+.turnstile-widget:empty {
+  display: none;
 }
 
 .emotion-option-row > button[data-emotion] {
@@ -417,13 +719,22 @@ button {
 }
 
 .chat-panel {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: rgba(10, 13, 11, 0.96);
+}
+
+.panel-view {
+  width: 100%;
+}
+
+.chat-view {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
   height: 100%;
   min-height: 0;
-  overflow: hidden;
   padding: 34px 30px 28px;
-  background: rgba(10, 13, 11, 0.96);
 }
 
 .chat-header {
@@ -606,7 +917,7 @@ h1 {
   }
 
   .emotion-options {
-    width: min(285px, calc(100vw - 40px));
+    width: 100%;
   }
 
 }

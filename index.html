@@ -38,48 +38,138 @@
             type="button"
             disabled
           >Reset position</button>
-          <details id="performance-menu" class="performance-menu">
-            <summary class="secondary-button">
-              <span id="performance-label">Facial performance</span>
-              <span class="menu-chevron">▾</span>
-            </summary>
-            <div id="emotion-options" class="emotion-options" aria-label="Facial emotion tests"></div>
-          </details>
+          <button id="settings-button" class="settings-button" type="button" aria-label="Open settings" title="Settings">
+            <span class="settings-gear" aria-hidden="true">⚙</span>
+          </button>
         </div>
       </section>
 
       <section class="chat-panel" aria-label="Chat with Freysa">
-        <header class="chat-header">
-          <div>
-            <p class="eyebrow">Interactive prototype</p>
-            <h1>Speak with Freysa</h1>
-          </div>
-        </header>
+        <div id="chat-view" class="panel-view chat-view">
+          <header class="chat-header">
+            <div>
+              <p class="eyebrow">Interactive prototype</p>
+              <h1>Speak with Freysa</h1>
+            </div>
+          </header>
 
-        <div id="chat-log" class="chat-log" aria-live="polite">
-          <article class="message message-freysa">
-            <span class="message-sender">Freysa</span>
-            <p>I am listening. What would you have me remember?</p>
-          </article>
+          <div id="chat-log" class="chat-log" aria-live="polite">
+            <article class="message message-freysa">
+              <span class="message-sender">Freysa</span>
+              <p>I am listening. What would you have me remember?</p>
+            </article>
+          </div>
+          <form id="chat-form" class="chat-form">
+            <label for="chat-input">Message Freysa</label>
+            <div class="input-row">
+              <input
+                id="chat-input"
+                name="message"
+                type="text"
+                maxlength="500"
+                autocomplete="off"
+                placeholder="Ask Freysa something…"
+              />
+              <button id="send-button" class="send-button" type="submit">Send</button>
+            </div>
+            <p id="voice-note" class="voice-note"></p>
+          </form>
         </div>
 
-        <form id="chat-form" class="chat-form">
-          <label for="chat-input">Message Freysa</label>
-          <div class="input-row">
-            <input
-              id="chat-input"
-              name="message"
-              type="text"
-              maxlength="500"
-              autocomplete="off"
-              placeholder="Ask Freysa something…"
-            />
-            <button id="send-button" class="send-button" type="submit">Send</button>
+        <div id="settings-view" class="panel-view settings-view" aria-labelledby="settings-title" hidden>
+          <header class="settings-header">
+            <div>
+              <p class="eyebrow">Avatar controls</p>
+              <h2 id="settings-title">Settings</h2>
+            </div>
+            <button id="settings-close-button" class="settings-close-button" type="button" aria-label="Return to chat">×</button>
+          </header>
+
+          <div class="settings-scroll">
+            <section class="settings-section" aria-labelledby="voice-settings-title">
+              <div class="settings-section-heading">
+                <div>
+                  <h3 id="voice-settings-title">Voice</h3>
+                  <p>Choose who generates Freysa’s speech.</p>
+                </div>
+                <span id="voice-provider-status" class="settings-status">Checking…</span>
+              </div>
+
+              <div class="settings-field">
+                <span>Voice provider</span>
+                <details id="voice-provider-menu" class="settings-select-menu">
+                  <summary>
+                    <span id="voice-provider-label">Microsoft · Nancy Multilingual</span>
+                    <span class="select-chevron" aria-hidden="true">⌄</span>
+                  </summary>
+                  <div id="voice-provider-options" class="settings-select-options" role="listbox" aria-label="Voice provider">
+                    <button type="button" data-voice-provider="elevenlabs-sponsored" role="option">ElevenLabs · Freysa sponsored</button>
+                    <button type="button" data-voice-provider="elevenlabs-own-key" role="option">ElevenLabs · Use my own key</button>
+                    <button type="button" data-voice-provider="azure" role="option">Microsoft · Nancy Multilingual</button>
+                    <button type="button" data-voice-provider="browser" role="option">Browser voice · Fallback</button>
+                  </div>
+                </details>
+              </div>
+
+              <div id="speaking-speed-setting" class="voice-speed-setting"></div>
+
+              <div id="elevenlabs-controls" class="elevenlabs-controls" hidden>
+                <label id="elevenlabs-key-field" class="settings-field" for="elevenlabs-api-key" hidden>
+                  <span>ElevenLabs API key</span>
+                  <input id="elevenlabs-api-key" type="password" autocomplete="off" placeholder="Paste your key for this browser session" />
+                  <small>The key stays in this browser session and is never saved to the repository.</small>
+                </label>
+
+                <div class="settings-field">
+                  <span>ElevenLabs voice</span>
+                  <details id="elevenlabs-voice-menu" class="settings-select-menu is-disabled">
+                    <summary>
+                      <span id="elevenlabs-voice-label">Load voices to choose…</span>
+                      <span class="select-chevron" aria-hidden="true">⌄</span>
+                    </summary>
+                    <div id="elevenlabs-voice-options" class="settings-select-options" role="listbox" aria-label="ElevenLabs voice"></div>
+                  </details>
+                </div>
+
+                <div class="voice-actions">
+                  <button id="load-voices-button" class="settings-action" type="button">Load voices</button>
+                  <button id="preview-voice-button" class="settings-action secondary" type="button" disabled>Preview voice</button>
+                </div>
+
+                <div id="sponsored-allowance" class="allowance-card" hidden>
+                  <div>
+                    <span>Sponsored voice today</span>
+                    <strong id="allowance-count">—</strong>
+                  </div>
+                  <div class="allowance-track" aria-hidden="true"><span id="allowance-progress"></span></div>
+                  <p id="allowance-message">Loading your allowance…</p>
+                  <a
+                    id="follow-freysa-button"
+                    class="settings-action follow-button"
+                    href="https://x.com/freysa_ai"
+                    target="_blank"
+                    rel="noopener"
+                    hidden
+                  >Follow Freysa on X · unlock 5 more</a>
+                </div>
+              </div>
+            </section>
+
+            <section class="settings-section" aria-labelledby="facial-settings-title">
+              <div class="settings-section-heading">
+                <div>
+                  <h3 id="facial-settings-title">Facial performance</h3>
+                  <p id="performance-label">Tune and test Freysa’s expressions.</p>
+                </div>
+              </div>
+              <div id="emotion-options" class="emotion-options" aria-label="Facial emotion tests"></div>
+            </section>
           </div>
-          <p id="voice-note" class="voice-note">Microsoft voice will be used when Azure Speech credentials are configured.</p>
-        </form>
+        </div>
       </section>
     </main>
+
+    <div id="turnstile-widget" class="turnstile-widget" aria-label="Human verification"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

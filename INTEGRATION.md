@@ -77,15 +77,21 @@ avatar.addEventListener("positionreset", () => console.log("Freysa returned to c
 
 The host can also call `avatar.stop()`, `avatar.resetPosition()`, and `avatar.getState()`.
 
-Users can click or touch-drag the avatar to rotate the bust while Freysa's eyes remain fixed on the camera. `avatar.resetPosition()` smoothly returns her to the default front-facing pose.
+Users can click or touch-drag the avatar to rotate the bust while ARKit gaze morphs approximate camera eye contact. `avatar.resetPosition()` smoothly returns her to the default front-facing pose. True pupil lock would require separately rigged, rotatable eyeballs.
 
 ## 5. Server endpoints
 
 - `GET /api/avatar/capabilities` lists modes, emotions, voice, limits, and API version.
 - `POST /api/avatar/respond` creates a performance plan for any of the three modes.
 - `POST /api/tts` creates Microsoft speech and the available facial-animation timing data.
+- `GET /api/voice-access` reports the anonymous sponsored ElevenLabs allowance.
+- `POST /api/voice-access/unlock` unlocks the optional second five-response daily allowance.
+- `GET/POST /api/elevenlabs/voices` lists voices using the sponsored key or a personal key supplied for the session.
+- `POST /api/elevenlabs/speech` creates ElevenLabs audio plus character timing after enforcing server-side limits.
 
-On the Cloudflare test, `/api/speech-token` returns a short-lived Azure token. Microsoft's browser Speech SDK then produces Nancy WAV audio and exact 60 FPS `FacialExpression` frames together. `/api/tts` remains a server-side REST fallback with a duration-matched estimated timeline. The local Node endpoint also returns Azure's exact frames.
+On the Cloudflare test, `/api/speech-token` returns a short-lived Azure token. Microsoft's browser Speech SDK then produces Nancy WAV audio and exact 60 FPS `FacialExpression` frames together. ElevenLabs returns audio plus character timestamps; the browser converts those timestamps to ARKit visemes and follows the audio clock. `/api/tts` remains a server-side REST fallback with a duration-matched estimated timeline.
+
+The demo Settings panel controls the selected voice adapter. A host integration can keep that user choice or set its own project default. Personal ElevenLabs keys are held only in browser session storage and sent to the speech proxy for the requested generation.
 
 For production, restrict the avatar host and API to the actual Freysa website origin and add server-side authentication before exposing paid TTS publicly.
 

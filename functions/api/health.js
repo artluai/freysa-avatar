@@ -4,6 +4,8 @@ export function onRequestGet({ env }) {
   const azureSpeechConfigured = Boolean(env.AZURE_SPEECH_KEY && env.AZURE_SPEECH_REGION);
   return new Response(JSON.stringify({
     azureSpeechConfigured,
+    elevenLabsConfigured: Boolean(env.ELEVENLABS_API_KEY),
+    turnstileSiteKey: env.TURNSTILE_SECRET_KEY ? env.TURNSTILE_SITE_KEY || "" : "",
     voice: env.AZURE_SPEECH_VOICE || DEFAULT_AZURE_VOICE,
     speechMode: azureSpeechConfigured ? "browser-sdk" : "none",
     facialAnimationMode: azureSpeechConfigured ? "azure-facial-expression" : "estimated"
