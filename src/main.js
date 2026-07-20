@@ -63,6 +63,8 @@ const allowanceMessage = document.querySelector("#allowance-message");
 const followFreysaButton = document.querySelector("#follow-freysa-button");
 const turnstileWidget = document.querySelector("#turnstile-widget");
 const speakingSpeedSetting = document.querySelector("#speaking-speed-setting");
+const pronunciationRulesButton = document.querySelector("#pronunciation-rules-button");
+const pronunciationRulesContent = document.querySelector("#pronunciation-rules-content");
 const pronunciationRulesToggle = document.querySelector("#pronunciation-rules-toggle");
 
 const SPEECH_RELEASE_HOLD_MS = 140;
@@ -261,6 +263,7 @@ elevenLabsVoiceOptions.addEventListener("click", handleElevenLabsVoiceChange);
 loadVoicesButton.addEventListener("click", loadElevenLabsVoices);
 previewVoiceButton.addEventListener("click", previewElevenLabsVoice);
 followFreysaButton.addEventListener("click", unlockSponsoredBonus);
+pronunciationRulesButton.addEventListener("click", togglePronunciationRulesDetails);
 pronunciationRulesToggle.addEventListener("change", handlePronunciationRulesChange);
 document.addEventListener("pointerdown", handleDocumentPointerDown);
 
@@ -520,6 +523,12 @@ function handlePronunciationRulesChange() {
   saveVoiceSettings(voiceSettings);
 }
 
+function togglePronunciationRulesDetails() {
+  const expanded = pronunciationRulesButton.getAttribute("aria-expanded") !== "true";
+  pronunciationRulesButton.setAttribute("aria-expanded", String(expanded));
+  pronunciationRulesContent.hidden = !expanded;
+}
+
 function handleVoiceProviderChange(event) {
   const button = event.target.closest("button[data-voice-provider]");
   if (!button) return;
@@ -668,7 +677,13 @@ async function loadElevenLabsVoices() {
     if (!response.ok) throw new Error(result.error || "ElevenLabs voices could not be loaded.");
     availableElevenLabsVoices = result.voices || [];
     populateElevenLabsVoiceSelect();
-    voiceProviderStatus.textContent = `${availableElevenLabsVoices.length} voices`;
+    const isCuratedList = !ownKey;
+    voiceProviderStatus.textContent = isCuratedList
+      ? `${availableElevenLabsVoices.length} of 12 voices`
+      : `${availableElevenLabsVoices.length} voices`;
+    voiceProviderStatus.title = Array.isArray(result.missing) && result.missing.length
+      ? `Unavailable: ${result.missing.join(", ")}`
+      : "";
     voiceProviderStatus.classList.add("online");
   } catch (error) {
     voiceProviderStatus.textContent = "Voice load failed";

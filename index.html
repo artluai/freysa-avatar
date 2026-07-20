@@ -86,6 +86,16 @@
           </header>
 
           <div class="settings-scroll">
+            <section class="settings-section" aria-labelledby="facial-settings-title">
+              <div class="settings-section-heading">
+                <div>
+                  <h3 id="facial-settings-title">Facial performance</h3>
+                  <p id="performance-label">Tune and test Freysa’s expressions.</p>
+                </div>
+              </div>
+              <div id="emotion-options" class="emotion-options" aria-label="Facial emotion tests"></div>
+            </section>
+
             <section class="settings-section" aria-labelledby="voice-settings-title">
               <div class="settings-section-heading">
                 <div>
@@ -113,13 +123,36 @@
 
               <div id="speaking-speed-setting" class="voice-speed-setting"></div>
 
-              <label class="settings-toggle" for="pronunciation-rules-toggle">
-                <span>
-                  <strong>Pronunciation rules</strong>
-                  <small>Frey-sah · Acts One–Five</small>
-                </span>
-                <input id="pronunciation-rules-toggle" type="checkbox" checked />
-              </label>
+              <div class="pronunciation-settings">
+                <div class="pronunciation-settings-row">
+                  <button
+                    id="pronunciation-rules-button"
+                    class="pronunciation-rules-button"
+                    type="button"
+                    aria-expanded="false"
+                    aria-controls="pronunciation-rules-content"
+                  >
+                    <span>
+                      <strong>Pronunciation rules</strong>
+                      <small>Frey-sah · Acts One–Five</small>
+                    </span>
+                    <span class="select-chevron" aria-hidden="true">⌄</span>
+                  </button>
+                  <label class="settings-switch" for="pronunciation-rules-toggle">
+                    <span class="visually-hidden">Enable pronunciation rules</span>
+                    <input id="pronunciation-rules-toggle" type="checkbox" checked />
+                  </label>
+                </div>
+                <div id="pronunciation-rules-content" class="pronunciation-rules-content" hidden>
+                  <textarea readonly aria-label="Current pronunciation rules">Freysa → Frey-sah
+Act I → Act One
+Act II → Act Two
+Act III → Act Three
+Act IV → Act Four
+Act V → Act Five
+Acts I–V → Acts One through Five</textarea>
+                </div>
+              </div>
 
               <div id="elevenlabs-controls" class="elevenlabs-controls" hidden>
                 <label id="elevenlabs-key-field" class="settings-field" for="elevenlabs-api-key" hidden>
@@ -163,15 +196,6 @@
               </div>
             </section>
 
-            <section class="settings-section" aria-labelledby="facial-settings-title">
-              <div class="settings-section-heading">
-                <div>
-                  <h3 id="facial-settings-title">Facial performance</h3>
-                  <p id="performance-label">Tune and test Freysa’s expressions.</p>
-                </div>
-              </div>
-              <div id="emotion-options" class="emotion-options" aria-label="Facial emotion tests"></div>
-            </section>
           </div>
         </div>
       </section>

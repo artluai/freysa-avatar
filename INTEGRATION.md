@@ -95,7 +95,7 @@ Users can click or touch-drag the avatar to rotate the bust while ARKit gaze mor
 - `POST /api/tts` creates Microsoft speech and the available facial-animation timing data.
 - `GET /api/voice-access` reports the anonymous sponsored ElevenLabs allowance.
 - `POST /api/voice-access/unlock` unlocks the optional second five-response daily allowance.
-- `GET/POST /api/elevenlabs/voices` lists voices using the sponsored key or a personal key supplied for the session.
+- `GET /api/elevenlabs/voices` returns Freysa's curated 12-voice shortlist and imports missing approved library voices into the sponsored ElevenLabs workspace. `POST` lists voices available to a personal key supplied for the session.
 - `POST /api/elevenlabs/speech` creates ElevenLabs audio plus character timing after enforcing server-side limits.
 
 On the Cloudflare test, `/api/speech-token` returns a short-lived Azure token. Microsoft's browser Speech SDK then produces Nancy WAV audio and exact 60 FPS `FacialExpression` frames together. ElevenLabs returns audio plus character timestamps; the browser converts those timestamps to ARKit visemes and follows the audio clock. `/api/tts` remains a server-side REST fallback with a duration-matched estimated timeline.

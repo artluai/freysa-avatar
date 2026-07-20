@@ -281,8 +281,7 @@ button {
 .emotion-option-all {
   margin-bottom: 5px;
   color: #70fb9d !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
-  border-radius: 5px 5px 0 0 !important;
+  border-radius: 5px !important;
 }
 
 .emotion-global-control {
@@ -322,7 +321,6 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   padding: 34px 30px 22px;
-  border-bottom: 1px solid rgba(231, 255, 237, 0.09);
 }
 
 .settings-header h2 {
@@ -356,9 +354,8 @@ button {
 }
 
 .settings-section + .settings-section {
-  margin-top: 26px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(231, 255, 237, 0.09);
+  margin-top: 22px;
+  padding-top: 0;
 }
 
 .settings-section-heading {
@@ -480,13 +477,12 @@ button {
 }
 
 .settings-select-options {
-  position: absolute;
+  position: static;
   z-index: 8;
-  top: calc(100% + 6px);
-  left: 0;
   display: grid;
   width: 100%;
   max-height: 240px;
+  margin-top: 6px;
   padding: 5px;
   overflow-y: auto;
   background: #0b0f0d;
@@ -528,32 +524,58 @@ button {
   border-bottom: 0;
 }
 
-.settings-toggle {
+.pronunciation-settings {
+  margin-top: 8px;
+  padding: 4px 0;
+}
+
+.pronunciation-settings-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 14px;
-  margin-top: 8px;
-  padding: 10px 0;
-  color: #b8c4bb;
-  cursor: pointer;
 }
 
-.settings-toggle > span {
+.pronunciation-rules-button {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 0;
+  color: #b8c4bb;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.pronunciation-rules-button > span:first-child {
   display: grid;
   gap: 3px;
 }
 
-.settings-toggle strong {
+.pronunciation-rules-button strong {
   font-size: 0.69rem;
 }
 
-.settings-toggle small {
+.pronunciation-rules-button small {
   color: #68766d;
   font-size: 0.61rem;
 }
 
-.settings-toggle input {
+.pronunciation-rules-button[aria-expanded="true"] .select-chevron {
+  transform: rotate(180deg);
+}
+
+.settings-switch {
+  display: inline-flex;
+  flex: none;
+  cursor: pointer;
+}
+
+.settings-switch input {
   position: relative;
   width: 32px;
   height: 18px;
@@ -565,7 +587,7 @@ button {
   transition: background 140ms ease;
 }
 
-.settings-toggle input::after {
+.settings-switch input::after {
   position: absolute;
   top: 3px;
   left: 3px;
@@ -577,18 +599,45 @@ button {
   transition: background 140ms ease, transform 140ms ease;
 }
 
-.settings-toggle input:checked {
+.settings-switch input:checked {
   background: rgba(112, 251, 157, 0.24);
 }
 
-.settings-toggle input:checked::after {
+.settings-switch input:checked::after {
   background: #70fb9d;
   transform: translateX(14px);
 }
 
-.settings-toggle input:focus-visible {
+.settings-switch input:focus-visible {
   outline: 2px solid rgba(112, 251, 157, 0.58);
   outline-offset: 3px;
+}
+
+.pronunciation-rules-content {
+  padding: 2px 0 8px;
+}
+
+.pronunciation-rules-content textarea {
+  width: 100%;
+  min-height: 148px;
+  resize: none;
+  padding: 11px 12px;
+  color: #aebbb2;
+  background: rgba(112, 251, 157, 0.035);
+  border: 1px solid rgba(143, 255, 177, 0.13);
+  border-radius: 7px;
+  font: 0.61rem/1.65 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .voice-actions {

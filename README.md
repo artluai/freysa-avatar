@@ -12,7 +12,7 @@ Freysa is a browser-based 3D avatar that can receive text, speak it with a human
 - Four facial meshes expose 51 Apple ARKit-compatible expression channels.
 - Microsoft Azure speaks with `en-US-NancyMultilingualNeural` and returns exact 60 FPS facial-animation frames synchronized to the audio.
 - ElevenLabs can be selected from **Settings** for more natural voices. Its character timestamps are converted into the existing ARKit mouth shapes and synchronized to audio playback.
-- The Settings panel combines voice provider, ElevenLabs voice selection and preview, speaking speed, sponsored usage, and all facial-performance controls.
+- The Settings panel puts facial-performance controls first, then voice provider, speaking speed, expandable pronunciation rules, sponsored usage, and a curated 12-voice ElevenLabs shortlist.
 - Sponsored ElevenLabs usage is limited server-side without login: 5 daily responses, an optional 5-response X-link bonus, then a personal API key or the next daily reset.
 - Cloudflare D1, a signed `HttpOnly` browser cookie, hashed IP buckets, and per-minute limits prevent refreshes and ordinary browser switching from resetting that allowance.
 - OpenRouter-hosted `z-ai/glm-5.2` can write Freysa's response using her Acts I–V history and the current Crown game context.
@@ -170,8 +170,8 @@ This hosted URL is for testing. Before launch, the team should deploy the reposi
 
 5. Open <http://127.0.0.1:5187/> in a browser.
 6. Click the **⚙ Settings** button beside **Reset position**.
-7. Under **Voice**, choose Microsoft, sponsored ElevenLabs, personal ElevenLabs, or browser fallback.
-8. Under **Facial performance**, preview expressions and adjust their intensity.
+7. Under **Facial performance**, preview expressions and adjust their intensity.
+8. Under **Voice**, choose Microsoft, sponsored ElevenLabs, personal ElevenLabs, or browser fallback. Sponsored ElevenLabs loads Freysa's 12 recommended American female voices in preference order.
 
 Without private keys, the site uses its local response rules and the browser's system voice. That is useful for checking the interface, but it does not represent the final Nancy voice or exact Microsoft lip-sync.
 
