@@ -1,0 +1,23 @@
+{
+  "name": "freysa-avatar",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c magenta,cyan \"node --watch --env-file-if-exists=.env server.mjs\" \"vite --host 127.0.0.1\"",
+    "build": "vite build",
+    "build:cloudflare": "vite build && gltf-transform optimize dist/freysa_head_arkit.glb dist/freysa_head_arkit_cloudflare.glb --compress meshopt --simplify false --texture-compress false --join false --flatten false --instance false && node scripts/use-cloudflare-model.mjs",
+    "test": "node --test",
+    "start": "node --env-file-if-exists=.env server.mjs"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "microsoft-cognitiveservices-speech-sdk": "^1.50.0",
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@gltf-transform/cli": "^4.4.1",
+    "concurrently": "^10.0.3",
+    "vite": "^8.1.5"
+  }
+}

@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#070908" />
+    <title>Freysa Voice Prototype</title>
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="avatar-stage" aria-label="Freysa avatar preview">
+        <canvas
+          id="avatar-canvas"
+          aria-label="Freysa 3D avatar. Drag to rotate her while she maintains eye contact."
+          title="Drag to rotate Freysa"
+        ></canvas>
+        <div class="brand-lockup">
+          <span class="brand-mark"></span>
+          <span>FREYSA // VOICE LAB</span>
+        </div>
+        <div class="stage-status">
+          <span id="avatar-status" class="status-dot"></span>
+          <span class="stage-status-copy">
+            <span id="avatar-status-label">Loading approved avatar…</span>
+            <span id="speech-badge" class="stage-voice">Checking Microsoft TTS…</span>
+          </span>
+        </div>
+        <div class="stage-actions">
+          <a
+            class="secondary-button stage-history-link"
+            href="/history.html"
+            target="_blank"
+            rel="noopener"
+          >History of Freysa</a>
+          <button
+            id="reset-position-button"
+            class="secondary-button"
+            type="button"
+            disabled
+          >Reset position</button>
+          <details id="performance-menu" class="performance-menu">
+            <summary class="secondary-button">
+              <span id="performance-label">Facial performance</span>
+              <span class="menu-chevron">▾</span>
+            </summary>
+            <div id="emotion-options" class="emotion-options" aria-label="Facial emotion tests"></div>
+          </details>
+        </div>
+      </section>
+
+      <section class="chat-panel" aria-label="Chat with Freysa">
+        <header class="chat-header">
+          <div>
+            <p class="eyebrow">Interactive prototype</p>
+            <h1>Speak with Freysa</h1>
+          </div>
+        </header>
+
+        <div id="chat-log" class="chat-log" aria-live="polite">
+          <article class="message message-freysa">
+            <span class="message-sender">Freysa</span>
+            <p>I am listening. What would you have me remember?</p>
+          </article>
+        </div>
+
+        <form id="chat-form" class="chat-form">
+          <label for="chat-input">Message Freysa</label>
+          <div class="input-row">
+            <input
+              id="chat-input"
+              name="message"
+              type="text"
+              maxlength="500"
+              autocomplete="off"
+              placeholder="Ask Freysa something…"
+            />
+            <button id="send-button" class="send-button" type="submit">Send</button>
+          </div>
+          <p id="voice-note" class="voice-note">Microsoft voice will be used when Azure Speech credentials are configured.</p>
+        </form>
+      </section>
+    </main>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
