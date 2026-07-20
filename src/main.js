@@ -493,6 +493,11 @@ function openSettings() {
   settingsButton.setAttribute("aria-pressed", "true");
   syncVoiceSettingsUi();
   refreshVoiceAccess();
+  if (
+    voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED
+    && elevenLabsConfigured
+    && !availableElevenLabsVoices.length
+  ) loadElevenLabsVoices();
 }
 
 function toggleSettings() {
