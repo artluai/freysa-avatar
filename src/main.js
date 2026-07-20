@@ -9,7 +9,12 @@ import {
   limitFacialWeight,
   speechFacialGain
 } from "./visemes.js";
-import { EMOTION_NAMES, getAdjustedEmotionWeight } from "./emotions.js";
+import {
+  EMOTION_NAMES,
+  getAdjustedEmotionWeight,
+  getElevenLabsEmotionGain,
+  getEmotionHeadPose
+} from "./emotions.js";
 import { createPerformancePlan, INTEGRATION_MODES } from "./integration.js";
 import {
   DEFAULT_SPEECH_RATE_RANGE,
@@ -322,8 +327,9 @@ function frameModel(model) {
 function render(time) {
   const performanceState = updateFacialPerformance(time);
   updateHeadAndBreathing(time, performanceState.speechEnergy);
-  updateGaze(time, performanceState.hasSpeechFrames);
-  if (!performanceState.hasSpeechFrames) updateProceduralBlink(time);
+  const hasFullFaceSpeechFrames = performanceState.hasSpeechFrames && !isElevenLabsVoiceProvider();
+  updateGaze(time, hasFullFaceSpeechFrames);
+  if (!hasFullFaceSpeechFrames) updateProceduralBlink(time);
   renderer.render(scene, camera);
 }
 
@@ -368,6 +374,7 @@ function updateFacialPerformance(time) {
 
   for (let channel = 0; channel < ARKIT_BLENDSHAPE_NAMES.length; channel += 1) {
     const name = ARKIT_BLENDSHAPE_NAMES[channel];
+    const emotionGain = isElevenLabsVoiceProvider() ? getElevenLabsEmotionGain(name) : 1;
     const target = limitFacialWeight(
       name,
       (targetFrame?.[channel] || 0) * speechFacialGain(name)
@@ -376,7 +383,7 @@ function updateFacialPerformance(time) {
           name,
           masterEmotionIntensity,
           emotionIntensityByName[activeEmotion.name] ?? 1
-        ) * emotionBlend
+        ) * emotionBlend * emotionGain
     );
     smoothMorphWeight(name, target, targetFrame ? facialResponse(name) : 0.2);
   }
@@ -459,13 +466,18 @@ function updateHeadAndBreathing(time, speechEnergy) {
   avatarPosition.pitch = THREE.MathUtils.damp(avatarPosition.pitch, avatarPositionTarget.pitch, damping, deltaSeconds);
 
   const speakingAmount = isSpeaking ? 1 : 0;
-  avatarRoot.rotation.y = avatarPosition.yaw
+  const emotionControl = Math.min(1, masterEmotionIntensity * 2)
+    * Math.min(1, (emotionIntensityByName[activeEmotion.name] ?? 0.5) * 2);
+  const actingPose = isElevenLabsVoiceProvider()
+    ? getEmotionHeadPose(activeEmotion, emotionBlend * emotionControl)
+    : { pitch: 0, yaw: 0, roll: 0 };
+  avatarRoot.rotation.y = avatarPosition.yaw + actingPose.yaw
     + Math.sin(time * 0.00029) * 0.018
     + speakingAmount * Math.sin(time * 0.0013 + 0.4) * 0.015;
-  avatarRoot.rotation.x = avatarPosition.pitch + getAvatarPresentationPitch()
+  avatarRoot.rotation.x = avatarPosition.pitch + getAvatarPresentationPitch() + actingPose.pitch
     + Math.sin(time * 0.00037 + 0.9) * 0.008
     + speakingAmount * Math.sin(time * 0.0032) * (0.006 + speechEnergy * 0.012);
-  avatarRoot.rotation.z = Math.sin(time * 0.00021 + 2.1) * 0.007
+  avatarRoot.rotation.z = actingPose.roll + Math.sin(time * 0.00021 + 2.1) * 0.007
     + speakingAmount * Math.sin(time * 0.00083 + 1.1) * 0.004;
   avatarRoot.position.x = Math.sin(time * 0.00019 + 1.7) * 0.003
     + speakingAmount * Math.sin(time * 0.0011) * 0.002;
@@ -655,6 +667,13 @@ function speechRateRangeForProvider(provider = voiceSettings.provider) {
   ].includes(provider)
     ? ELEVENLABS_SPEECH_RATE_RANGE
     : DEFAULT_SPEECH_RATE_RANGE;
+}
+
+function isElevenLabsVoiceProvider(provider = voiceSettings.provider) {
+  return [
+    VOICE_PROVIDERS.ELEVENLABS_SPONSORED,
+    VOICE_PROVIDERS.ELEVENLABS_OWN_KEY
+  ].includes(provider);
 }
 
 function syncSpeakingSpeedUi() {

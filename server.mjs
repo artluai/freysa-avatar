@@ -8,8 +8,7 @@ import { appendFacialAnimationBatch, normalizeFacialFrames } from "./speech-anim
 import { normalizeSpeechRate } from "./src/speech-rate.js";
 import { createAzureSsml } from "./src/azure-tts.js";
 import { avatarCapabilities, createPerformancePlan, INTEGRATION_MODES } from "./src/integration.js";
-import { DEFAULT_GLM_MODEL, generateFreysaReply } from "./src/glm.js";
-import { selectResponseEmotion } from "./src/emotions.js";
+import { DEFAULT_GLM_MODEL, generateFreysaPerformance } from "./src/glm.js";
 import { createElevenLabsRequest, normalizeElevenLabsVoices } from "./src/elevenlabs.js";
 
 const app = express();
@@ -117,15 +116,15 @@ app.post("/api/avatar/respond", async (request, response) => {
   try {
     const plan = createPerformancePlan(request.body);
     if (plan.mode === INTEGRATION_MODES.FULL_FREYSA && openRouterApiKey) {
-      const text = await generateFreysaReply({
+      const performance = await generateFreysaPerformance({
         apiKey: openRouterApiKey,
         message: request.body.message,
         history: request.body.history
       });
       response.json({
         ...plan,
-        text,
-        emotion: selectResponseEmotion(request.body.message, text),
+        text: performance.text,
+        emotion: performance.emotion,
         model: DEFAULT_GLM_MODEL
       });
       return;
