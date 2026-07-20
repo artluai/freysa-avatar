@@ -1,4 +1,4 @@
-import { normalizeSpeechRate } from "./speech-rate.js";
+import { ELEVENLABS_SPEECH_RATE_RANGE, normalizeSpeechRate } from "./speech-rate.js";
 
 export const ELEVENLABS_MODEL = "eleven_multilingual_v2";
 
@@ -11,7 +11,7 @@ export function createElevenLabsRequest({ text, rate = 1, modelId = ELEVENLABS_M
       similarity_boost: 0.78,
       style: 0.18,
       use_speaker_boost: true,
-      speed: normalizeSpeechRate(rate)
+      speed: normalizeSpeechRate(rate, ELEVENLABS_SPEECH_RATE_RANGE)
     }
   };
 }

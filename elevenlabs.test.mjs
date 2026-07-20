@@ -14,6 +14,11 @@ test("creates a natural ElevenLabs request with the selected speech speed", () =
   assert.equal(request.voice_settings.use_speaker_boost, true);
 });
 
+test("caps ElevenLabs speech at the provider's supported maximum", () => {
+  const request = createElevenLabsRequest({ text: "Hello", rate: 1.25 });
+  assert.equal(request.voice_settings.speed, 1.2);
+});
+
 test("turns ElevenLabs character timing into a closed viseme timeline", () => {
   const events = createVisemesFromElevenLabsAlignment({
     characters: ["M", "a", " ", "v"],

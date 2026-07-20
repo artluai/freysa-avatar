@@ -11,7 +11,11 @@ import {
 } from "./visemes.js";
 import { EMOTION_NAMES, getAdjustedEmotionWeight } from "./emotions.js";
 import { createPerformancePlan, INTEGRATION_MODES } from "./integration.js";
-import { speechRateFromControl } from "./speech-rate.js";
+import {
+  DEFAULT_SPEECH_RATE_RANGE,
+  ELEVENLABS_SPEECH_RATE_RANGE,
+  speechRateFromControl
+} from "./speech-rate.js";
 import { synthesizeAzureInBrowser } from "./azure-browser-speech.js";
 import { createVisemesFromElevenLabsAlignment } from "./elevenlabs.js";
 import { configureBrowserUtterance } from "./browser-speech.js";
@@ -76,7 +80,7 @@ const MOBILE_VIEW_QUERY = "(max-width: 880px)";
 const MOBILE_AVATAR_PITCH = THREE.MathUtils.degToRad(3.5);
 const MOBILE_AVATAR_SCALE = 1.42;
 const MOBILE_AVATAR_VERTICAL_OFFSET = -0.075;
-const CURATED_DEFAULT_VOICE_VERSION = 1;
+const CURATED_DEFAULT_VOICE_VERSION = 2;
 
 const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -566,6 +570,7 @@ function handleElevenLabsVoiceChange(event) {
   const voice = availableElevenLabsVoices.find((item) => item.id === button.dataset.elevenlabsVoice);
   voiceSettings.voiceId = voice?.id || "";
   voiceSettings.voiceName = voice?.name || "";
+  voiceSettings.curatedDefaultVersion = CURATED_DEFAULT_VOICE_VERSION;
   elevenLabsVoiceMenu.open = false;
   saveVoiceSettings(voiceSettings);
   previewVoiceButton.disabled = !voice;
@@ -605,6 +610,28 @@ function syncVoiceSettingsUi() {
     voiceProviderStatus.textContent = "Local fallback";
     voiceProviderStatus.classList.remove("online");
   }
+  syncSpeakingSpeedUi();
+}
+
+function speechRateRangeForProvider(provider = voiceSettings.provider) {
+  return [
+    VOICE_PROVIDERS.ELEVENLABS_SPONSORED,
+    VOICE_PROVIDERS.ELEVENLABS_OWN_KEY
+  ].includes(provider)
+    ? ELEVENLABS_SPEECH_RATE_RANGE
+    : DEFAULT_SPEECH_RATE_RANGE;
+}
+
+function syncSpeakingSpeedUi() {
+  const input = speakingSpeedSetting.querySelector('input[data-intensity-target="speech-rate"]');
+  const output = input?.parentElement.querySelector("output");
+  const rangeLabel = speakingSpeedSetting.querySelector(".speech-speed-range");
+  if (!input || !output || !rangeLabel) return;
+  const range = speechRateRangeForProvider();
+  const rate = speechRateFromControl(speechRateControl, range);
+  output.textContent = `${rate.toFixed(2)}×`;
+  input.setAttribute("aria-valuetext", `${rate.toFixed(2)} times normal speed`);
+  rangeLabel.textContent = `${range.minimum.toFixed(2)}×–${range.maximum.toFixed(2)}×`;
 }
 
 function voiceProviderName(provider) {
@@ -716,19 +743,19 @@ function populateElevenLabsVoiceSelect() {
     elevenLabsVoiceOptions.append(option);
   }
 
-  const curatedSarah = availableElevenLabsVoices.find((voice) => voice.curatedKey === "sarah");
-  const migrateToSarah = voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED
+  const curatedMatilda = availableElevenLabsVoices.find((voice) => voice.curatedKey === "matilda");
+  const migrateToMatilda = voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED
     && voiceSettings.curatedDefaultVersion < CURATED_DEFAULT_VOICE_VERSION;
-  const selected = migrateToSarah
-    ? curatedSarah || availableElevenLabsVoices[0]
+  const selected = migrateToMatilda
+    ? curatedMatilda || availableElevenLabsVoices[0]
     : availableElevenLabsVoices.find((voice) => voice.id === voiceSettings.voiceId)
-      || curatedSarah
+      || curatedMatilda
       || availableElevenLabsVoices[0];
   elevenLabsVoiceMenu.classList.toggle("is-disabled", !selected);
   if (selected) {
     voiceSettings.voiceId = selected.id;
     voiceSettings.voiceName = selected.name;
-    if (migrateToSarah) voiceSettings.curatedDefaultVersion = CURATED_DEFAULT_VOICE_VERSION;
+    if (migrateToMatilda) voiceSettings.curatedDefaultVersion = CURATED_DEFAULT_VOICE_VERSION;
     saveVoiceSettings(voiceSettings);
   }
   for (const button of elevenLabsVoiceOptions.querySelectorAll("button[data-elevenlabs-voice]")) {
@@ -796,7 +823,7 @@ async function speakReply(text, {
   onSpeechStart,
   pronunciationRules = voiceSettings.pronunciationRulesEnabled
 } = {}) {
-  const speechRate = speechRateFromControl(speechRateControl);
+  const speechRate = speechRateFromControl(speechRateControl, speechRateRangeForProvider());
   const spokenText = applyPronunciationRules(text, { enabled: pronunciationRules !== false });
   if (
     voiceSettings.provider === VOICE_PROVIDERS.ELEVENLABS_SPONSORED
@@ -1225,9 +1252,16 @@ function createMasterIntensityControl() {
 function createSpeakingSpeedControl() {
   const control = document.createElement("div");
   control.className = "emotion-global-control speech-speed-control";
+  const copy = document.createElement("span");
+  copy.className = "speech-speed-copy";
   const label = document.createElement("span");
   label.textContent = "Speaking speed";
-  control.append(label, createIntensitySlider("speech-rate", speechRateControl));
+  const range = document.createElement("small");
+  range.className = "speech-speed-range";
+  const activeRange = speechRateRangeForProvider();
+  range.textContent = `${activeRange.minimum.toFixed(2)}×–${activeRange.maximum.toFixed(2)}×`;
+  copy.append(label, range);
+  control.append(copy, createIntensitySlider("speech-rate", speechRateControl));
   return control;
 }
 
@@ -1351,7 +1385,9 @@ function clampIntensity(value) {
 }
 
 function formatSliderOutput(name, value) {
-  if (name === "speech-rate") return `${speechRateFromControl(value).toFixed(2)}×`;
+  if (name === "speech-rate") {
+    return `${speechRateFromControl(value, speechRateRangeForProvider()).toFixed(2)}×`;
+  }
   return `${Math.round(value * 100)}%`;
 }
 

@@ -308,6 +308,18 @@ button {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+.speech-speed-copy {
+  display: grid;
+  gap: 2px;
+}
+
+.speech-speed-range {
+  color: #65736a;
+  font-size: 0.55rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
 .emotion-option-row {
   display: grid;
   grid-template-columns: 1fr auto;
