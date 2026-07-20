@@ -19,6 +19,10 @@ import {
 import { synthesizeAzureInBrowser } from "./azure-browser-speech.js";
 import { createVisemesFromElevenLabsAlignment } from "./elevenlabs.js";
 import { configureBrowserUtterance } from "./browser-speech.js";
+import {
+  VOICE_ACCESS_PROMPT_STATES,
+  voiceAccessPromptState
+} from "./voice-access-prompt.js";
 import { applyPronunciationRules } from "./pronunciation.js";
 import {
   VOICE_PROVIDERS,
@@ -137,6 +141,7 @@ let positionDragStart = null;
 let lastPositionFrameAt = 0;
 const voiceSettings = loadVoiceSettings();
 let voiceAccess = null;
+let voiceBonusPromptElement = null;
 let availableElevenLabsVoices = [];
 let turnstileSiteKey = "";
 let turnstileWidgetId = null;
@@ -218,6 +223,7 @@ chatForm.addEventListener("submit", async (event) => {
   try {
     plan = await requestFullFreysaPlan({ message });
     await performPlan(plan, { onSpeechStart: displayResponse });
+    flushVoiceBonusChatPrompt();
   } catch (error) {
     displayResponse();
     console.error(error);
@@ -270,6 +276,7 @@ elevenLabsVoiceOptions.addEventListener("click", handleElevenLabsVoiceChange);
 loadVoicesButton.addEventListener("click", loadElevenLabsVoices);
 previewVoiceButton.addEventListener("click", previewElevenLabsVoice);
 followFreysaButton.addEventListener("click", unlockSponsoredBonus);
+chatLog.addEventListener("click", handleVoiceBonusPromptClick);
 pronunciationRulesButton.addEventListener("click", togglePronunciationRulesDetails);
 pronunciationRulesToggle.addEventListener("change", handlePronunciationRulesChange);
 document.addEventListener("pointerdown", handleDocumentPointerDown);
@@ -655,7 +662,7 @@ async function refreshVoiceAccess() {
   }
 }
 
-function updateVoiceAccess(access) {
+function updateVoiceAccess(access, { deferChatPrompt = false } = {}) {
   voiceAccess = access;
   elevenLabsConfigured = Boolean(access.sponsoredConfigured);
   const total = Math.max(1, Number(access.total) || 5);
@@ -677,6 +684,53 @@ function updateVoiceAccess(access) {
     allowanceMessage.textContent = "No login required. Refreshing or switching browsers on this network will not reset the server allowance.";
   }
   syncVoiceSettingsUi();
+  if (!deferChatPrompt) flushVoiceBonusChatPrompt();
+}
+
+function flushVoiceBonusChatPrompt() {
+  const hasPrompt = Boolean(voiceBonusPromptElement?.isConnected);
+  const state = voiceAccessPromptState(voiceAccess, { hasPrompt });
+  if (state === VOICE_ACCESS_PROMPT_STATES.HIDDEN) return;
+  if (!voiceBonusPromptElement?.isConnected) voiceBonusPromptElement = createVoiceBonusPrompt();
+
+  const message = voiceBonusPromptElement.querySelector("p");
+  const link = voiceBonusPromptElement.querySelector("a[data-unlock-sponsored-voice]");
+  if (state === VOICE_ACCESS_PROMPT_STATES.AVAILABLE) {
+    message.textContent = "You’ve used your 5 sponsored voice responses today. Follow Freysa on X to unlock 5 more.";
+    link.hidden = false;
+  } else {
+    message.textContent = "5 more sponsored voice responses are unlocked for today.";
+    link.hidden = true;
+  }
+
+  chatLog.scrollTop = chatLog.scrollHeight;
+}
+
+function createVoiceBonusPrompt() {
+  const article = document.createElement("article");
+  article.className = "message message-voice-access";
+  const sender = document.createElement("span");
+  sender.className = "message-sender";
+  sender.textContent = "Voice access";
+  const message = document.createElement("p");
+  const link = document.createElement("a");
+  link.className = "voice-unlock-link";
+  link.href = "https://x.com/freysa_ai";
+  link.target = "_blank";
+  link.rel = "noopener";
+  link.dataset.unlockSponsoredVoice = "";
+  link.textContent = "Follow Freysa on X · unlock 5 more";
+  article.append(sender, message, link);
+  chatLog.append(article);
+  return article;
+}
+
+async function handleVoiceBonusPromptClick(event) {
+  const link = event.target.closest("a[data-unlock-sponsored-voice]");
+  if (!link) return;
+  link.textContent = "Unlocking…";
+  const unlocked = await unlockSponsoredBonus();
+  if (!unlocked) link.textContent = "Follow Freysa on X · unlock 5 more";
 }
 
 async function unlockSponsoredBonus() {
@@ -685,8 +739,10 @@ async function unlockSponsoredBonus() {
     const access = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(access.error || "Bonus unlock failed.");
     updateVoiceAccess(access);
+    return true;
   } catch (error) {
     allowanceMessage.textContent = error.message;
+    return false;
   }
 }
 
@@ -893,7 +949,7 @@ async function requestElevenLabsSpeech(text, rate) {
     })
   });
   const speech = await response.json().catch(() => ({}));
-  if (speech.access) updateVoiceAccess(speech.access);
+  if (speech.access) updateVoiceAccess(speech.access, { deferChatPrompt: true });
   if (!response.ok) {
     if (["DAILY_LIMIT_REACHED", "NETWORK_LIMIT_REACHED"].includes(speech.code)) openSettings();
     throw new Error(speech.error || "ElevenLabs speech request failed.");

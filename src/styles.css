@@ -934,6 +934,35 @@ h1 {
   color: #99a69d;
 }
 
+.message-voice-access {
+  width: 100%;
+  max-width: 100%;
+  align-self: stretch;
+  background: rgba(112, 251, 157, 0.045);
+  border: 1px solid rgba(112, 251, 157, 0.2);
+}
+
+.message-voice-access p {
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.voice-unlock-link {
+  display: inline-flex;
+  margin-top: 11px;
+  padding: 9px 11px;
+  color: #071008;
+  background: #70fb9d;
+  border-radius: 6px;
+  font-size: 0.68rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.voice-unlock-link:hover {
+  background: #9affb8;
+}
+
 .chat-form {
   padding-top: 24px;
   border-top: 1px solid rgba(231, 255, 237, 0.09);
